@@ -79,9 +79,15 @@ class DentroListaViewModel : BaseVM() {
 
     fun copiarSeleccionadosA(idDestino: Long, onDone: () -> Unit = {}) {
         viewModelScope.launch {
-            repo.copiarItems(idDestino, _state.value.seleccion.toList()).onSuccess {
-                limpiarSeleccion(); onDone()
-            }
+            repo.copiarItems(idDestino, _state.value.seleccion.toList())
+                .onSuccess {
+                    limpiarSeleccion()
+                    onDone()
+                }
+                .onFailure {
+                    _state.value = _state.value.copy(error = it.message ?: "Error al copiar")
+                    onDone() // cierra el sheet aunque falle, para no dejar al usuario atrapado
+                }
         }
     }
 

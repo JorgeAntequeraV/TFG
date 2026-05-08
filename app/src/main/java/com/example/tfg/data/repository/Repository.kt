@@ -1,6 +1,7 @@
 package com.example.tfg.data.repository
 
 import com.example.tfg.data.api.ApiService
+import com.example.tfg.data.local.PresetsCache
 import com.example.tfg.data.model.*
 import com.example.tfg.data.session.SessionManager
 import com.example.tfg.data.util.JwtUtil
@@ -8,7 +9,8 @@ import retrofit2.HttpException
 
 class Repository(
     private val api: ApiService,
-    private val session: SessionManager
+    private val session: SessionManager,
+    private val presets: PresetsCache
 ) {
 
     suspend fun login(usuario: String, contrasena: String): Result<String> = runCatching {
@@ -25,6 +27,10 @@ class Repository(
     suspend fun logout() {
         session.clear()
     }
+
+    // ===== Auth público — recuperación de contraseña =====
+    suspend fun forgotPassword(nombreUsuario: String) = safe { api.forgotPassword(ForgotPasswordRequest(nombreUsuario)) }
+    suspend fun resetPassword(token: String, nuevaContrasena: String) = safe { api.resetPassword(ResetPasswordRequest(token, nuevaContrasena)) }
 
     // listas
     suspend fun obtenerListas() = safe { api.obtenerListas() }
@@ -77,9 +83,31 @@ class Repository(
     suspend fun adminCambiarRol(id: Long, rol: String) = safe { api.adminCambiarRol(id, CambiarRolRequest(rol)) }
     suspend fun adminEliminarUsuario(id: Long) = safe { api.adminEliminarUsuario(id) }
 
-    // presets
+    // presets — directos a la API
     suspend fun obtenerSupermercadosDefecto() = safe { api.obtenerSupermercadosDefecto() }
     suspend fun obtenerProductosDefecto() = safe { api.obtenerProductosDefecto() }
+
+    /**
+     * Devuelve los productos por defecto cacheados localmente.
+     * La primera vez los descarga de la API y los guarda en almacenamiento local;
+     * a partir de ahí siempre vienen del cache, igual que los favoritos del usuario.
+     */
+    suspend fun obtenerProductosDefectoCacheados(): Result<List<ProductoCatalogoDTO>> = runCatching {
+        presets.productosCacheados()?.let { return@runCatching it }
+        val frescos = api.obtenerProductosDefecto()
+        presets.guardarProductos(frescos)
+        frescos
+    }.recoverCatching { throw mapError(it) }
+
+    suspend fun obtenerSupermercadosDefectoCacheados(): Result<List<String>> = runCatching {
+        presets.supermercadosCacheados()?.let { return@runCatching it }
+        val frescos = api.obtenerSupermercadosDefecto()
+        presets.guardarSupermercados(frescos)
+        frescos
+    }.recoverCatching { throw mapError(it) }
+
+    /** Borra el cache local (útil tras logout o si se quiere forzar refresco). */
+    suspend fun limpiarPresetsCache() = presets.limpiar()
 
     private suspend fun <T> safe(block: suspend () -> T): Result<T> = runCatching { block() }
         .recoverCatching { throw mapError(it) }

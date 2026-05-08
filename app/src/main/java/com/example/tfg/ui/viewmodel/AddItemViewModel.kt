@@ -23,7 +23,9 @@ class AddItemViewModel : BaseVM() {
         viewModelScope.launch {
             _state.value = _state.value.copy(loading = true)
             val favs = repo.obtenerFavoritos().getOrNull() ?: emptyList()
-            val sis = repo.obtenerProductosDefecto().getOrNull() ?: emptyList()
+            // Los presets de sistema usan cache local: la primera vez los pide a la API
+            // y los guarda en el almacenamiento del teléfono. A partir de ahí van del cache.
+            val sis = repo.obtenerProductosDefectoCacheados().getOrNull() ?: emptyList()
             _state.value = AddItemState(favoritos = favs, sistema = sis)
         }
     }

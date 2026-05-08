@@ -12,6 +12,13 @@ interface ApiService {
     @POST("usuarios/login")
     suspend fun login(@Body body: LoginRequest): String
 
+    // ===== Auth público (recuperar contraseña) =====
+    @POST("auth/forgot-password")
+    suspend fun forgotPassword(@Body body: ForgotPasswordRequest): MessageResponse
+
+    @POST("auth/reset-password")
+    suspend fun resetPassword(@Body body: ResetPasswordRequest): MessageResponse
+
     @PUT("usuarios/cambiar-contrasena")
     suspend fun cambiarContrasena(@Body body: CambiarContrasenaRequest): MessageResponse
 

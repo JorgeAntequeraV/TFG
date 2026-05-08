@@ -9,6 +9,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import androidx.navigation.navDeepLink
 import com.example.tfg.BuyNotesApp
 import com.example.tfg.ui.components.BottomTab
 import com.example.tfg.ui.screens.*
@@ -43,7 +44,31 @@ fun AppNavigation() {
                     }
                 },
                 onGoToRegistro = { navController.navigate(Routes.REGISTRO) },
-                onForgotPassword = { /* TODO */ }
+                onForgotPassword = { navController.navigate(Routes.FORGOT_PASSWORD) }
+            )
+        }
+        composable(Routes.FORGOT_PASSWORD) {
+            ForgotPasswordScreen(onBack = { navController.popBackStack() })
+        }
+        composable(
+            route = Routes.RESET_PASSWORD,
+            arguments = listOf(navArgument("token") {
+                type = NavType.StringType
+                nullable = true
+                defaultValue = null
+            }),
+            deepLinks = listOf(
+                navDeepLink { uriPattern = "buynotes://reset-password?token={token}" }
+            )
+        ) { entry ->
+            val token = entry.arguments?.getString("token").orEmpty()
+            ResetPasswordScreen(
+                token = token,
+                onDone = {
+                    navController.navigate(Routes.LOGIN) {
+                        popUpTo(0) { inclusive = true }
+                    }
+                }
             )
         }
         composable(Routes.REGISTRO) {
