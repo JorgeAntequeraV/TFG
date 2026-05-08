@@ -64,7 +64,7 @@ fun LoginScreen(
         GreenTextField(
             value = usuario,
             onValueChange = { usuario = it },
-            placeholder = "Usuario o correo"
+            placeholder = "Usuario"
         )
         Spacer(Modifier.height(12.dp))
         GreenTextField(

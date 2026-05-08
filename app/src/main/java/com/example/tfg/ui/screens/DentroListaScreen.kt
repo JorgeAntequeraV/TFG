@@ -137,7 +137,7 @@ fun DentroListaScreen(
                         ) {
                             Text("Total:", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold)
                             Text(
-                                String.format("%.2f €", lista.total ?: 0.0),
+                                String.format("%.2f €", totalDeProductos(productos)),
                                 color = MaterialTheme.colorScheme.onBackground,
                                 fontWeight = FontWeight.Bold
                             )
@@ -262,7 +262,7 @@ private fun ItemCard(
         Spacer(Modifier.weight(1f))
         if (mostrarPrecio) {
             Text(
-                String.format("%.2f €", producto.precio ?: 0.0),
+                String.format("%.2f €", subtotalDe(producto)),
                 color = Color.White,
                 modifier = Modifier
                     .background(GreenDark, RoundedCornerShape(8.dp))
@@ -272,6 +272,16 @@ private fun ItemCard(
         }
     }
 }
+
+private fun subtotalDe(p: ProductoListaDTO): Double {
+    val precio = p.precio ?: 0.0
+    val cant = p.cantidad?.replace(",", ".")?.toDoubleOrNull() ?: 1.0
+    val mult = if (cant <= 0.0) 1.0 else cant
+    return precio * mult
+}
+
+internal fun totalDeProductos(productos: List<ProductoListaDTO>): Double =
+    productos.sumOf { subtotalDe(it) }
 
 // ====== Sheets ======
 
@@ -380,13 +390,44 @@ fun PulsarItemSheet(producto: ProductoListaDTO, onGuardar: (ProductoListaDTO) ->
     var nombre by remember { mutableStateOf(producto.nombre) }
     var unidad by remember { mutableStateOf(producto.unidadMedida ?: "") }
     var cantidad by remember { mutableStateOf(producto.cantidad ?: "") }
+    var precio by remember { mutableStateOf(producto.precio?.let { if (it == 0.0) "" else it.toString() } ?: "") }
 
     fun setUnidad(u: String) { unidad = u }
     fun cantidadNum() = cantidad.toIntOrNull() ?: 0
 
     Column(Modifier.fillMaxWidth().padding(16.dp)) {
-        GreenTextField(value = nombre, onValueChange = { nombre = it }, placeholder = "Nombre del producto", background = GreenDark)
+        // Fila 1: nombre (mitad izquierda) | precio (mitad derecha)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Box(Modifier.weight(1f)) {
+                GreenTextField(
+                    value = nombre,
+                    onValueChange = { nombre = it },
+                    placeholder = "Nombre",
+                    background = GreenDark
+                )
+            }
+            Box(Modifier.weight(1f)) {
+                OutlinedTextField(
+                    value = precio,
+                    onValueChange = { v ->
+                        if (v.matches(Regex("^\\d*(\\.\\d{0,2})?\$"))) precio = v
+                    },
+                    placeholder = { Text("Precio", color = Color.White.copy(alpha = 0.7f)) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    modifier = Modifier.fillMaxWidth().background(GreenDark, RoundedCornerShape(12.dp)),
+                    shape = RoundedCornerShape(12.dp),
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White, unfocusedTextColor = Color.White,
+                        focusedContainerColor = GreenDark, unfocusedContainerColor = GreenDark,
+                        focusedBorderColor = Color.Transparent, unfocusedBorderColor = Color.Transparent,
+                        cursorColor = Color.White
+                    )
+                )
+            }
+        }
         Spacer(Modifier.height(16.dp))
+        // Fila 2: unidad | cantidad (con sus botones debajo)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Column(Modifier.weight(1f)) {
                 GreenTextField(value = unidad, onValueChange = { unidad = it }, placeholder = "Unidad", background = GreenDark)
@@ -450,7 +491,8 @@ fun PulsarItemSheet(producto: ProductoListaDTO, onGuardar: (ProductoListaDTO) ->
                 onGuardar(producto.copy(
                     nombre = nombre,
                     cantidad = cantidad.ifBlank { null },
-                    unidadMedida = unidad.ifBlank { null }
+                    unidadMedida = unidad.ifBlank { null },
+                    precio = precio.toDoubleOrNull()
                 ))
             })
         }
