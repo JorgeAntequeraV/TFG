@@ -32,6 +32,8 @@ import com.example.tfg.ui.components.PrimaryButton
 import com.example.tfg.ui.theme.GreenAccent
 import com.example.tfg.ui.theme.GreenDark
 import com.example.tfg.ui.theme.GreenMedium
+import com.example.tfg.ui.theme.RedComprado
+import com.example.tfg.ui.theme.RedCompradoDark
 import com.example.tfg.ui.viewmodel.DentroListaViewModel
 import com.example.tfg.ui.viewmodel.ListasViewModel
 
@@ -52,6 +54,15 @@ fun DentroListaScreen(
     var itemPulsado by remember { mutableStateOf<ProductoListaDTO?>(null) }
     var precioItem by remember { mutableStateOf<ProductoListaDTO?>(null) }
 
+    // Modo compra: toggle + ids de los productos marcados como "comprados" (en rojo)
+    var modoCompra by remember { mutableStateOf(false) }
+    var comprados by remember { mutableStateOf<Set<Long>>(emptySet()) }
+    // Si la lista cambia, reseteamos
+    LaunchedEffect(listaId) {
+        modoCompra = false
+        comprados = emptySet()
+    }
+
     LaunchedEffect(listaId) { vm.cargar(listaId) }
 
     val config = LocalConfiguration.current
@@ -62,6 +73,9 @@ fun DentroListaScreen(
     val productos = lista?.productos ?: emptyList()
     val ordenados = if (lista?.ordenAscendente != false) productos.sortedBy { it.nombre.lowercase() }
     else productos.sortedByDescending { it.nombre.lowercase() }
+    // En modo compra separamos los pendientes de los comprados (en rojo abajo)
+    val pendientes = if (modoCompra) ordenados.filter { it.id !in comprados } else ordenados
+    val rojos = if (modoCompra) ordenados.filter { it.id in comprados } else emptyList()
 
     Box(
         Modifier
@@ -104,7 +118,20 @@ fun DentroListaScreen(
                 )
             }
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(12.dp))
+
+            // Botón "Modo compra" centrado
+            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                ModoCompraToggle(
+                    activo = modoCompra,
+                    onClick = {
+                        modoCompra = !modoCompra
+                        if (!modoCompra) comprados = emptySet()
+                    }
+                )
+            }
+
+            Spacer(Modifier.height(12.dp))
 
             if (state.loading) CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
             state.error?.let { Text(it, color = Color.Red) }
@@ -113,18 +140,23 @@ fun DentroListaScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.weight(1f)
             ) {
-                items(ordenados, key = { it.id ?: 0 }) { p ->
+                items(pendientes, key = { it.id ?: 0 }) { p ->
                     ItemCard(
                         producto = p,
                         seleccionado = p.id in state.seleccion,
+                        enRojo = false,
                         mostrarPrecio = lista?.mostrarPrecios == true,
                         onTap = {
-                            if (state.seleccion.isNotEmpty()) {
-                                p.id?.let { vm.toggleSeleccion(it) }
-                            } else itemPulsado = p
+                            when {
+                                modoCompra -> p.id?.let { id -> comprados = comprados + id }
+                                state.seleccion.isNotEmpty() -> p.id?.let { vm.toggleSeleccion(it) }
+                                else -> itemPulsado = p
+                            }
                         },
-                        onLong = { p.id?.let { vm.toggleSeleccion(it) } },
-                        onPrecioClick = { precioItem = p }
+                        onLong = {
+                            if (!modoCompra) p.id?.let { vm.toggleSeleccion(it) }
+                        },
+                        onPrecioClick = { if (!modoCompra) precioItem = p }
                     )
                 }
                 if (lista?.mostrarPrecios == true) {
@@ -144,23 +176,70 @@ fun DentroListaScreen(
                         }
                     }
                 }
+                // Sección de productos comprados (en rojo) — debajo de la lista o del Total
+                if (modoCompra && rojos.isNotEmpty()) {
+                    item {
+                        Box(
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(top = 16.dp, bottom = 4.dp)
+                                .background(RedCompradoDark, RoundedCornerShape(12.dp))
+                                .padding(horizontal = 12.dp, vertical = 8.dp)
+                        ) {
+                            Text("Comprados", color = Color.White, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                    items(rojos, key = { "rojo-${it.id ?: 0}" }) { p ->
+                        ItemCard(
+                            producto = p,
+                            seleccionado = false,
+                            enRojo = true,
+                            mostrarPrecio = lista?.mostrarPrecios == true,
+                            onTap = { p.id?.let { id -> comprados = comprados - id } },
+                            onLong = { },
+                            onPrecioClick = { }
+                        )
+                    }
+                }
             }
         }
 
-        // FAB +
-
-        Box(
-            Modifier
-                .align(Alignment.BottomEnd)
-                .padding(bottom = 16.dp)
-                .size(56.dp)
-                .background(GreenAccent, CircleShape)
-                .clickable { onAnadirItem() },
-            contentAlignment = Alignment.Center,
-
-
-        ) {
-            Icon(Icons.Default.Add, null, tint = Color.Black, modifier = Modifier.size(28.dp))
+        // FAB inferior derecho — "+" en modo normal, "Comprar" en modo compra
+        if (modoCompra) {
+            Box(
+                Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(bottom = 16.dp)
+                    .background(GreenAccent, RoundedCornerShape(28.dp))
+                    .clickable(enabled = comprados.isNotEmpty()) {
+                        // captura una copia y elimina secuencialmente, recargando al final
+                        val aEliminar = comprados.toSet()
+                        vm.eliminarVarios(aEliminar) {
+                            comprados = comprados - aEliminar
+                            if (comprados.isEmpty()) modoCompra = false
+                        }
+                    }
+                    .padding(horizontal = 24.dp, vertical = 16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    "Comprar",
+                    color = if (comprados.isNotEmpty()) Color.Black else Color.Black.copy(alpha = 0.4f),
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        } else {
+            Box(
+                Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(bottom = 16.dp)
+                    .size(56.dp)
+                    .background(GreenAccent, CircleShape)
+                    .clickable { onAnadirItem() },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Default.Add, null, tint = Color.Black, modifier = Modifier.size(28.dp))
+            }
         }
     }
 
@@ -231,12 +310,18 @@ fun DentroListaScreen(
 private fun ItemCard(
     producto: ProductoListaDTO,
     seleccionado: Boolean,
+    enRojo: Boolean = false,
     mostrarPrecio: Boolean,
     onTap: () -> Unit,
     onLong: () -> Unit,
     onPrecioClick: () -> Unit
 ) {
-    val color = if (seleccionado) GreenDark else GreenMedium
+    val color = when {
+        enRojo -> RedComprado
+        seleccionado -> GreenDark
+        else -> GreenMedium
+    }
+    val precioBg = if (enRojo) RedCompradoDark else GreenDark
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -265,11 +350,26 @@ private fun ItemCard(
                 String.format("%.2f €", subtotalDe(producto)),
                 color = Color.White,
                 modifier = Modifier
-                    .background(GreenDark, RoundedCornerShape(8.dp))
+                    .background(precioBg, RoundedCornerShape(8.dp))
                     .clickable { onPrecioClick() }
                     .padding(horizontal = 10.dp, vertical = 6.dp)
             )
         }
+    }
+}
+
+@Composable
+private fun ModoCompraToggle(activo: Boolean, onClick: () -> Unit) {
+    val bg = if (activo) GreenAccent else GreenMedium
+    val txt = if (activo) Color.Black else Color.White
+    Box(
+        Modifier
+            .background(bg, RoundedCornerShape(20.dp))
+            .clickable { onClick() }
+            .padding(horizontal = 20.dp, vertical = 10.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text("Modo compra", color = txt, fontWeight = FontWeight.SemiBold)
     }
 }
 

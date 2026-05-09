@@ -77,6 +77,21 @@ class DentroListaViewModel : BaseVM() {
         }
     }
 
+    /** Elimina varios productos en secuencia y al terminar recarga la lista una sola vez. */
+    fun eliminarVarios(ids: Collection<Long>, onDone: () -> Unit = {}) {
+        viewModelScope.launch {
+            var fallos = 0
+            ids.forEach { id ->
+                repo.eliminarItem(listaId, id).onFailure { fallos++ }
+            }
+            if (fallos > 0) {
+                _state.value = _state.value.copy(error = "No se pudieron eliminar $fallos producto(s)")
+            }
+            cargar(listaId)
+            onDone()
+        }
+    }
+
     fun copiarSeleccionadosA(idDestino: Long, onDone: () -> Unit = {}) {
         viewModelScope.launch {
             repo.copiarItems(idDestino, _state.value.seleccion.toList())

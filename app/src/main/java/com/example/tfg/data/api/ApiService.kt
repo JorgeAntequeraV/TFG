@@ -45,7 +45,7 @@ interface ApiService {
     suspend fun configurarLista(@Path("id") id: Long, @Body body: ConfigListaRequest): ListaDTO
 
     @DELETE("listas/{id}")
-    suspend fun eliminarLista(@Path("id") id: Long): MessageResponse
+    suspend fun eliminarLista(@Path("id") id: Long): String
 
     @POST("listas/{id}/items")
     suspend fun anadirItem(@Path("id") id: Long, @Body body: ProductoListaDTO): ProductoListaDTO
@@ -61,7 +61,7 @@ interface ApiService {
     ): ProductoListaDTO
 
     @DELETE("listas/{id}/items/{productoId}")
-    suspend fun eliminarItem(@Path("id") id: Long, @Path("productoId") productoId: Long): MessageResponse
+    suspend fun eliminarItem(@Path("id") id: Long, @Path("productoId") productoId: Long): String
 
     @POST("listas/{idLista}/items/desde-favorito/{idFav}")
     suspend fun anadirDesdeFavorito(@Path("idLista") idLista: Long, @Path("idFav") idFav: Long): ProductoListaDTO
@@ -74,16 +74,16 @@ interface ApiService {
     suspend fun obtenerSolicitudes(): List<SolicitudAmistadDTO>
 
     @POST("amistad/solicitudes/{id}/aceptar")
-    suspend fun aceptarSolicitud(@Path("id") id: Long): MessageResponse
+    suspend fun aceptarSolicitud(@Path("id") id: Long): String
 
     @DELETE("amistad/solicitudes/{id}")
-    suspend fun rechazarSolicitud(@Path("id") id: Long): MessageResponse
+    suspend fun rechazarSolicitud(@Path("id") id: Long): String
 
     @GET("amistad")
     suspend fun obtenerAmigos(): List<AmigoDTO>
 
     @DELETE("amistad/{idAmigo}")
-    suspend fun eliminarAmigo(@Path("idAmigo") idAmigo: Long): MessageResponse
+    suspend fun eliminarAmigo(@Path("idAmigo") idAmigo: Long): String
 
     // ===== Favoritos =====
     @GET("favoritos")
@@ -96,7 +96,7 @@ interface ApiService {
     suspend fun editarFavorito(@Path("id") id: Long, @Body body: FavoritoDTO): FavoritoDTO
 
     @DELETE("favoritos/{id}")
-    suspend fun eliminarFavorito(@Path("id") id: Long): MessageResponse
+    suspend fun eliminarFavorito(@Path("id") id: Long): String
 
     // ===== Invitaciones =====
     @POST("invitaciones")
@@ -106,10 +106,10 @@ interface ApiService {
     suspend fun obtenerInvitaciones(): List<InvitacionListaDTO>
 
     @POST("invitaciones/{id}/aceptar")
-    suspend fun aceptarInvitacion(@Path("id") id: Long): MessageResponse
+    suspend fun aceptarInvitacion(@Path("id") id: Long): String
 
     @DELETE("invitaciones/{id}")
-    suspend fun rechazarInvitacion(@Path("id") id: Long): MessageResponse
+    suspend fun rechazarInvitacion(@Path("id") id: Long): String
 
     // ===== Admin =====
     @GET("api/admin/usuarios")

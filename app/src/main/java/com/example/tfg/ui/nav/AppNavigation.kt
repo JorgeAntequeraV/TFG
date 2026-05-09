@@ -3,7 +3,6 @@ package com.example.tfg.ui.nav
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -147,5 +146,3 @@ fun AppNavigation() {
     }
 }
 
-@Suppress("UnusedReceiverParameter")
-private fun NavGraphBuilder.placeholder() {}
