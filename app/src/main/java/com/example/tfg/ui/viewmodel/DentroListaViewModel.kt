@@ -77,7 +77,7 @@ class DentroListaViewModel : BaseVM() {
         }
     }
 
-    /** Elimina varios productos en secuencia y al terminar recarga la lista una sola vez. */
+
     fun eliminarVarios(ids: Collection<Long>, onDone: () -> Unit = {}) {
         viewModelScope.launch {
             var fallos = 0

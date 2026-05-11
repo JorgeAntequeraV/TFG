@@ -30,6 +30,19 @@ class AuthViewModel : BaseVM() {
         }
     }
 
+    fun loginConGoogle(idToken: String) {
+        viewModelScope.launch {
+            _state.value = AuthState(loading = true)
+            repo.loginConGoogle(idToken)
+                .onSuccess { _state.value = AuthState(success = true) }
+                .onFailure { _state.value = AuthState(error = it.message ?: "Error con Google") }
+        }
+    }
+
+    fun mostrarError(mensaje: String) {
+        _state.value = _state.value.copy(error = mensaje)
+    }
+
     fun forgotPassword(nombreUsuario: String) {
         viewModelScope.launch {
             _state.value = AuthState(loading = true)
@@ -48,11 +61,17 @@ class AuthViewModel : BaseVM() {
         }
     }
 
-    fun registro(nombre: String, email: String, usuario: String, contrasena: String) {
+    fun registro(
+        nombre: String,
+        email: String,
+        usuario: String,
+        contrasena: String,
+        recaptchaToken: String? = null
+    ) {
         viewModelScope.launch {
             _state.value = AuthState(loading = true)
             val req = UsuarioRegistro(nombre, email, usuario, contrasena, null)
-            repo.registro(req)
+            repo.registro(req, recaptchaToken)
                 .onSuccess {
                     // tras registro hay que loguear automáticamente
                     repo.login(usuario, contrasena)

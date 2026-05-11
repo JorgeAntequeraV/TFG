@@ -41,6 +41,16 @@ data class ResetPasswordRequest(
 )
 
 @JsonClass(generateAdapter = true)
+data class GoogleLoginRequest(
+    val idToken: String
+)
+
+@JsonClass(generateAdapter = true)
+data class TokenResponse(
+    val token: String
+)
+
+@JsonClass(generateAdapter = true)
 data class UsuarioDTO(
     val id: Long? = null,
     val nombre: String? = null,

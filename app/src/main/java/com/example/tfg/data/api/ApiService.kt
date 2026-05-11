@@ -7,7 +7,10 @@ interface ApiService {
 
     // ===== Usuarios =====
     @POST("usuarios/registro")
-    suspend fun registro(@Body body: UsuarioRegistro): RegistroResponse
+    suspend fun registro(
+        @retrofit2.http.Header("X-Recaptcha-Token") recaptchaToken: String?,
+        @Body body: UsuarioRegistro
+    ): RegistroResponse
 
     @POST("usuarios/login")
     suspend fun login(@Body body: LoginRequest): String
@@ -18,6 +21,9 @@ interface ApiService {
 
     @POST("auth/reset-password")
     suspend fun resetPassword(@Body body: ResetPasswordRequest): MessageResponse
+
+    @POST("auth/google")
+    suspend fun loginGoogle(@Body body: GoogleLoginRequest): TokenResponse
 
     @PUT("usuarios/cambiar-contrasena")
     suspend fun cambiarContrasena(@Body body: CambiarContrasenaRequest): MessageResponse

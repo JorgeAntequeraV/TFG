@@ -20,8 +20,16 @@ class Repository(
         token
     }.recoverCatching { throw mapError(it) }
 
-    suspend fun registro(req: UsuarioRegistro): Result<RegistroResponse> = runCatching {
-        api.registro(req)
+    suspend fun loginConGoogle(idToken: String): Result<String> = runCatching {
+        val response = api.loginGoogle(GoogleLoginRequest(idToken))
+        val token = response.token.trim('"')
+        val claims = JwtUtil.parse(token)
+        session.saveSession(token, claims?.userId, claims?.sub, claims?.role)
+        token
+    }.recoverCatching { throw mapError(it) }
+
+    suspend fun registro(req: UsuarioRegistro, recaptchaToken: String? = null): Result<RegistroResponse> = runCatching {
+        api.registro(recaptchaToken, req)
     }.recoverCatching { throw mapError(it) }
 
     suspend fun logout() {

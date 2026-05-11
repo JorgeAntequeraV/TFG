@@ -175,43 +175,48 @@ fun CambiarCorreoScreen(onBack: () -> Unit) {
     val padTop = config.screenHeightDp.dp / 16
     val gap = config.screenHeightDp.dp / 9
 
-    Column(
+    Box(
         Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .padding(horizontal = padLR)
-            .padding(top = padTop),
-        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text("Volver", color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier
-                .align(Alignment.Start)
-                .clickable { onBack() })
-        Spacer(Modifier.height(gap))
-        Text(
-            "Introduzca su nuevo correo electrónico",
-            color = MaterialTheme.colorScheme.onBackground,
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+        Column(
+            Modifier
+                .fillMaxSize()
+                .padding(horizontal = padLR)
+                .padding(top = padTop),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Spacer(Modifier.height(gap))
+            Text(
+                "Introduzca su nuevo correo electrónico",
+                color = MaterialTheme.colorScheme.onBackground,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
+            Spacer(Modifier.height(gap))
+            GreenTextField(
+                value = correo,
+                onValueChange = { correo = it },
+                placeholder = "Correo",
+                keyboardType = KeyboardType.Email
+            )
+            Spacer(Modifier.height(gap))
+            PrimaryButton("Enviar", {
+                localError = null
+                if (!correo.contains("@") || !correo.substringAfter("@").contains(".")) {
+                    localError = "Correo inválido"
+                } else {
+                    vm.cambiarCorreo(correo.trim()) { onBack() }
+                }
+            }, enabled = correo.isNotBlank())
+            Spacer(Modifier.height(12.dp))
+            (localError ?: st.error)?.let { Text(it, color = Color.Red) }
+            st.mensaje?.let { Text(it, color = MaterialTheme.colorScheme.onBackground) }
+        }
+        com.example.tfg.ui.components.BackFab(
+            onClick = onBack,
+            modifier = Modifier.align(Alignment.BottomStart).padding(start = padLR)
         )
-        Spacer(Modifier.height(gap))
-        GreenTextField(
-            value = correo,
-            onValueChange = { correo = it },
-            placeholder = "Correo",
-            keyboardType = KeyboardType.Email
-        )
-        Spacer(Modifier.height(gap))
-        PrimaryButton("Enviar", {
-            localError = null
-            if (!correo.contains("@") || !correo.substringAfter("@").contains(".")) {
-                localError = "Correo inválido"
-            } else {
-                vm.cambiarCorreo(correo.trim()) { onBack() }
-            }
-        }, enabled = correo.isNotBlank())
-        Spacer(Modifier.height(12.dp))
-        (localError ?: st.error)?.let { Text(it, color = Color.Red) }
-        st.mensaje?.let { Text(it, color = MaterialTheme.colorScheme.onBackground) }
     }
 }
 
@@ -228,35 +233,42 @@ fun CambiarContrasenaScreen(onBack: () -> Unit) {
     val padLR = config.screenWidthDp.dp / 32
     val padTop = config.screenHeightDp.dp / 16
 
-    Column(
+    Box(
         Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .padding(horizontal = padLR)
-            .padding(top = padTop)
     ) {
-        Text("Volver", color = MaterialTheme.colorScheme.onBackground, modifier = Modifier.clickable { onBack() })
-        Spacer(Modifier.height(24.dp))
-        Text("Cambiar contraseña", color = MaterialTheme.colorScheme.onBackground,
-            fontSize = 22.sp, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(24.dp))
-        GreenTextField(actual, { actual = it }, "Contraseña actual", isPassword = true)
-        Spacer(Modifier.height(12.dp))
-        GreenTextField(nueva, { nueva = it }, "Nueva contraseña", isPassword = true)
-        Spacer(Modifier.height(12.dp))
-        GreenTextField(nuevaRep, { nuevaRep = it }, "Repetir nueva contraseña", isPassword = true)
-        Spacer(Modifier.height(24.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-            PrimaryButton("Guardar", {
-                localError = null
-                if (nueva != nuevaRep) localError = "Las contraseñas no coinciden"
-                else if (nueva.contains(" ")) localError = "La contraseña no puede tener espacios"
-                else if (nueva.length < 4) localError = "Contraseña demasiado corta"
-                else vm.cambiarContrasena(actual, nueva) { onBack() }
-            }, enabled = actual.isNotBlank() && nueva.isNotBlank() && nuevaRep.isNotBlank())
+        Column(
+            Modifier
+                .fillMaxSize()
+                .padding(horizontal = padLR)
+                .padding(top = padTop)
+        ) {
+            Text("Cambiar contraseña", color = MaterialTheme.colorScheme.onBackground,
+                fontSize = 22.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(24.dp))
+            GreenTextField(actual, { actual = it }, "Contraseña actual", isPassword = true)
+            Spacer(Modifier.height(12.dp))
+            GreenTextField(nueva, { nueva = it }, "Nueva contraseña", isPassword = true)
+            Spacer(Modifier.height(12.dp))
+            GreenTextField(nuevaRep, { nuevaRep = it }, "Repetir nueva contraseña", isPassword = true)
+            Spacer(Modifier.height(24.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                PrimaryButton("Guardar", {
+                    localError = null
+                    if (nueva != nuevaRep) localError = "Las contraseñas no coinciden"
+                    else if (nueva.contains(" ")) localError = "La contraseña no puede tener espacios"
+                    else if (nueva.length < 4) localError = "Contraseña demasiado corta"
+                    else vm.cambiarContrasena(actual, nueva) { onBack() }
+                }, enabled = actual.isNotBlank() && nueva.isNotBlank() && nuevaRep.isNotBlank())
+            }
+            Spacer(Modifier.height(12.dp))
+            (localError ?: st.error)?.let { Text(it, color = Color.Red) }
+            st.mensaje?.let { Text(it, color = MaterialTheme.colorScheme.onBackground) }
         }
-        Spacer(Modifier.height(12.dp))
-        (localError ?: st.error)?.let { Text(it, color = Color.Red) }
-        st.mensaje?.let { Text(it, color = MaterialTheme.colorScheme.onBackground) }
+        com.example.tfg.ui.components.BackFab(
+            onClick = onBack,
+            modifier = Modifier.align(Alignment.BottomStart).padding(start = padLR)
+        )
     }
 }

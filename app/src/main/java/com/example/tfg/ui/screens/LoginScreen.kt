@@ -16,6 +16,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.tfg.ui.components.GoogleSignInButton
 import com.example.tfg.ui.components.GreenTextField
 import com.example.tfg.ui.components.PrimaryButton
 import com.example.tfg.ui.viewmodel.AuthViewModel
@@ -87,14 +88,13 @@ fun LoginScreen(
         }
 
         Spacer(Modifier.height(28.dp))
-        // Continuar con Google (3/4 del largo) — pendiente de integración
-        OutlinedButton(
-            onClick = { /* TODO: integración Google Sign-In */ },
+        // Continuar con Google (3/4 del largo) — Google Sign-In real
+        GoogleSignInButton(
+            onIdTokenReceived = { idToken -> vm.loginConGoogle(idToken) },
+            onError = { msg -> vm.mostrarError(msg) },
             modifier = Modifier.fillMaxWidth(0.75f),
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onBackground)
-        ) {
-            Text("Continuar con Google")
-        }
+            enabled = !state.loading
+        )
         Spacer(Modifier.height(28.dp))
 
         // Iniciar sesión (2/4 del largo)
@@ -127,12 +127,9 @@ fun LoginScreen(
 
 @Composable
 fun Logo() {
-    Box(
-        modifier = Modifier
-            .size(96.dp)
-            .background(com.example.tfg.ui.theme.GreenAccent, CircleShape),
-        contentAlignment = Alignment.Center
-    ) {
-        Text("BN", fontSize = 32.sp, fontWeight = FontWeight.Bold, color = Color.Black)
-    }
+    androidx.compose.foundation.Image(
+        painter = androidx.compose.ui.res.painterResource(id = com.example.tfg.R.drawable.logo_buynotes),
+        contentDescription = "Logo BuyNotes",
+        modifier = Modifier.size(140.dp)
+    )
 }

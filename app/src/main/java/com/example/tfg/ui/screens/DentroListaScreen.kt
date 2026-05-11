@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.tfg.data.model.ListaDTO
 import com.example.tfg.data.model.ProductoListaDTO
+import com.example.tfg.ui.components.BackFab
 import com.example.tfg.ui.components.GreenTextField
 import com.example.tfg.ui.components.PrimaryButton
 import com.example.tfg.ui.theme.GreenAccent
@@ -54,7 +55,6 @@ fun DentroListaScreen(
     var itemPulsado by remember { mutableStateOf<ProductoListaDTO?>(null) }
     var precioItem by remember { mutableStateOf<ProductoListaDTO?>(null) }
 
-    // Modo compra: toggle + ids de los productos marcados como "comprados" (en rojo)
     var modoCompra by remember { mutableStateOf(false) }
     var comprados by remember { mutableStateOf<Set<Long>>(emptySet()) }
     // Si la lista cambia, reseteamos
@@ -94,7 +94,7 @@ fun DentroListaScreen(
                     color = MaterialTheme.colorScheme.onBackground,
                     fontSize = 22.sp,
                     fontWeight = FontWeight.Bold,
-                    modifier = Modifier.weight(1f).clickable { onBack() }
+                    modifier = Modifier.weight(1f)
                 )
                 Icon(
                     Icons.Default.PersonAdd,
@@ -203,6 +203,9 @@ fun DentroListaScreen(
                 }
             }
         }
+
+        // Botón "volver" inferior izquierdo (lado opuesto al "+")
+        BackFab(onClick = onBack, modifier = Modifier.align(Alignment.BottomStart))
 
         // FAB inferior derecho — "+" en modo normal, "Comprar" en modo compra
         if (modoCompra) {
