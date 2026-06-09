@@ -9,6 +9,7 @@ import kotlinx.coroutines.launch
 data class ListasState(
     val loading: Boolean = false,
     val listas: List<ListaDTO> = emptyList(),
+    val mensaje: String? = null,
     val error: String? = null
 )
 
@@ -20,8 +21,8 @@ class ListasViewModel : BaseVM() {
         viewModelScope.launch {
             _state.value = _state.value.copy(loading = true, error = null)
             repo.obtenerListas()
-                .onSuccess { _state.value = ListasState(listas = it) }
-                .onFailure { _state.value = ListasState(error = it.message) }
+                .onSuccess { _state.value = _state.value.copy(loading = false, listas = it) }
+                .onFailure { _state.value = _state.value.copy(loading = false, error = it.message ?: "No se pudieron cargar las listas") }
         }
     }
 
@@ -29,16 +30,23 @@ class ListasViewModel : BaseVM() {
         viewModelScope.launch {
             repo.crearLista(nombre, supermercado)
                 .onSuccess {
+                    _state.value = _state.value.copy(mensaje = "Lista creada")
                     cargar()
                     onDone()
                 }
-                .onFailure { _state.value = _state.value.copy(error = it.message) }
+                .onFailure { _state.value = _state.value.copy(error = it.message ?: "No se pudo crear la lista") }
         }
     }
 
     fun eliminar(id: Long) {
         viewModelScope.launch {
-            repo.eliminarLista(id).onSuccess { cargar() }
+            repo.eliminarLista(id)
+                .onSuccess { _state.value = _state.value.copy(mensaje = "Lista eliminada"); cargar() }
+                .onFailure { _state.value = _state.value.copy(error = it.message ?: "No se pudo eliminar") }
         }
+    }
+
+    fun limpiarMensaje() {
+        _state.value = _state.value.copy(mensaje = null, error = null)
     }
 }

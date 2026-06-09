@@ -9,7 +9,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -24,6 +23,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.tfg.data.model.AmigoDTO
 import com.example.tfg.ui.components.GreenTextField
 import com.example.tfg.ui.components.PrimaryButton
+import com.example.tfg.ui.components.rememberToast
 import com.example.tfg.ui.theme.GreenAccent
 import com.example.tfg.ui.theme.GreenDark
 import com.example.tfg.ui.theme.GreenMedium
@@ -34,35 +34,48 @@ import com.example.tfg.ui.viewmodel.AmigosViewModel
 fun AmigosScreen(onBack: () -> Unit) {
     val vm: AmigosViewModel = viewModel()
     val state by vm.state.collectAsState()
+    val toast = rememberToast()
     var showAdd by remember { mutableStateOf(false) }
     var confirmEliminar by remember { mutableStateOf<AmigoDTO?>(null) }
 
     LaunchedEffect(Unit) { vm.cargar() }
+    LaunchedEffect(state.error) { state.error?.let { toast.error(it); vm.limpiarMensaje() } }
+    LaunchedEffect(state.mensaje) { state.mensaje?.let { toast.exito(it); vm.limpiarMensaje() } }
 
     val config = LocalConfiguration.current
     val padTop = config.screenHeightDp.dp / 16
     val padLR = config.screenWidthDp.dp / 32
 
+    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
     Column(
         Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
             .padding(horizontal = padLR)
             .padding(top = padTop)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                Icons.Default.ArrowBack, null,
-                tint = MaterialTheme.colorScheme.onBackground,
-                modifier = Modifier.clickable { onBack() }
-            )
-            Spacer(Modifier.width(12.dp))
+        Row(
+            Modifier.fillMaxWidth().height(56.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Text(
                 "Mis amigos",
                 color = MaterialTheme.colorScheme.onBackground,
-                fontSize = 20.sp, fontWeight = FontWeight.Bold,
-                modifier = Modifier.weight(1f)
+                fontSize = 22.sp, fontWeight = FontWeight.Bold
             )
+            Spacer(Modifier.weight(1f))
+            // Tag del usuario actual (su identificador para que otros le añadan)
+            Box(
+                Modifier
+                    .background(GreenMedium, RoundedCornerShape(10.dp))
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
+            ) {
+                Text(
+                    state.miTag ?: "…",
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            Spacer(Modifier.weight(1f))
             Box(
                 Modifier
                     .size(44.dp)
@@ -92,6 +105,11 @@ fun AmigosScreen(onBack: () -> Unit) {
                 AmigoCard(a, onEliminar = { confirmEliminar = a })
             }
         }
+    }
+        com.example.tfg.ui.components.BackBoton(
+            onClick = onBack,
+            modifier = Modifier.align(Alignment.BottomStart).padding(start = padLR)
+        )
     }
 
     if (showAdd) {
@@ -146,7 +164,7 @@ private fun AmigoCard(a: AmigoDTO, onEliminar: () -> Unit) {
 @Composable
 private fun AnadirAmigoSheet(onEnviar: (String) -> Unit, error: String?) {
     var tag by remember { mutableStateOf("") }
-    Column(Modifier.fillMaxWidth().padding(16.dp)) {
+    Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(16.dp)) {
         Text("Añadir amigo", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(16.dp))
         GreenTextField(

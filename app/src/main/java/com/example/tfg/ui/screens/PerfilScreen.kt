@@ -3,7 +3,9 @@ package com.example.tfg.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -39,7 +41,14 @@ fun PerfilScreen(
 ) {
     val vm: PerfilViewModel = viewModel()
     val sessionData by vm.sessionState.collectAsState()
+    val cuenta by vm.cuenta.collectAsState()
+    val perfilState by vm.state.collectAsState()
+    val toast = com.example.tfg.ui.components.rememberToast()
     var showCambiarNombre by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) { vm.cargarCuenta() }
+    LaunchedEffect(perfilState.mensaje) { perfilState.mensaje?.let { toast.exito(it); vm.limpiar() } }
+    LaunchedEffect(perfilState.error) { perfilState.error?.let { toast.error(it); vm.limpiar() } }
 
     val config = LocalConfiguration.current
     val padTop = config.screenHeightDp.dp / 16
@@ -49,17 +58,22 @@ fun PerfilScreen(
 
     Scaffold(
         bottomBar = { BottomBar(BottomTab.PERFIL, onTabChange) },
-        containerColor = MaterialTheme.colorScheme.background
+        containerColor = MaterialTheme.colorScheme.background,
+        contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0)
     ) { inner ->
         Column(
             Modifier
                 .padding(inner)
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = padLR)
                 .padding(top = padTop)
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                Modifier.fillMaxWidth().height(56.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Text("Perfil", color = MaterialTheme.colorScheme.onBackground,
                     fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                 ProfileAvatar(initial = initial, size = 48)
@@ -71,6 +85,8 @@ fun PerfilScreen(
                 onToggle = { vm.toggleTemaOscuro(it) }
             )
             Spacer(Modifier.height(12.dp))
+            CuentaCard(cuenta)
+            Spacer(Modifier.height(12.dp))
             ProfileButton("Notificaciones") { onNotificaciones() }
             Spacer(Modifier.height(12.dp))
             ProfileButton("Mis amigos") { onAmigos() }
@@ -81,12 +97,12 @@ fun PerfilScreen(
             Spacer(Modifier.height(12.dp))
             ProfileButton("Cambiar contraseña") { onCambiarContrasena() }
 
-            if (sessionData.rol == "ADMIN") {
+            if (sessionData.rol == "ROLE_ADMIN") {
                 Spacer(Modifier.height(12.dp))
                 ProfileButton("Panel de Administración") { onAdmin() }
             }
 
-            Spacer(Modifier.weight(1f))
+            Spacer(Modifier.height(24.dp))
             PrimaryButton(
                 text = "Cerrar sesión",
                 onClick = { vm.logout(onLogout) },
@@ -110,8 +126,9 @@ private fun TemaOscuroCard(activado: Boolean, onToggle: (Boolean) -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()
+            .height(60.dp)
             .background(GreenMedium, RoundedCornerShape(12.dp))
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text("Tema oscuro", color = Color.White, modifier = Modifier.weight(1f), fontSize = 16.sp)
@@ -129,13 +146,48 @@ private fun TemaOscuroCard(activado: Boolean, onToggle: (Boolean) -> Unit) {
 }
 
 @Composable
+private fun CuentaCard(cuenta: com.example.tfg.ui.viewmodel.CuentaInfo) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .background(GreenMedium, RoundedCornerShape(12.dp))
+            .padding(horizontal = 16.dp, vertical = 12.dp)
+    ) {
+        Text("Cuenta", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(8.dp))
+        CuentaRow("Nombre", cuenta.nombre)
+        CuentaRow("Usuario", cuenta.nombreUsuario)
+        CuentaRow("Correo", cuenta.email)
+    }
+}
+
+@Composable
+private fun CuentaRow(etiqueta: String, valor: String?) {
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(etiqueta, color = Color.White.copy(alpha = 0.75f), fontSize = 13.sp,
+            modifier = Modifier.width(80.dp))
+        Text(
+            valor?.takeIf { it.isNotBlank() } ?: "…",
+            color = Color.White,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.SemiBold
+        )
+    }
+}
+
+@Composable
 private fun ProfileButton(text: String, onClick: () -> Unit) {
     Box(
         Modifier
             .fillMaxWidth()
+            .height(60.dp)
             .background(GreenMedium, RoundedCornerShape(12.dp))
             .clickable { onClick() }
-            .padding(horizontal = 16.dp, vertical = 16.dp)
+            .padding(horizontal = 16.dp),
+        contentAlignment = Alignment.CenterStart
     ) {
         Text(text, color = Color.White, fontSize = 16.sp)
     }
@@ -144,7 +196,7 @@ private fun ProfileButton(text: String, onClick: () -> Unit) {
 @Composable
 fun CambiarNombreSheet(onGuardar: (String) -> Unit) {
     var nombre by remember { mutableStateOf("") }
-    Column(Modifier.fillMaxWidth().padding(16.dp)) {
+    Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(16.dp)) {
         Text("Cambiar nombre", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(16.dp))
         GreenTextField(
@@ -166,51 +218,60 @@ fun CambiarNombreSheet(onGuardar: (String) -> Unit) {
 fun CambiarCorreoScreen(onBack: () -> Unit) {
     val vm: PerfilViewModel = viewModel()
     val st by vm.state.collectAsState()
+    val toast = com.example.tfg.ui.components.rememberToast()
     var correo by remember { mutableStateOf("") }
     var localError by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(st.mensaje) { st.mensaje?.let { toast.exito(it); vm.limpiar() } }
+    LaunchedEffect(st.error) { st.error?.let { toast.error(it); vm.limpiar() } }
 
     val config = LocalConfiguration.current
     val padLR = config.screenWidthDp.dp / 32
     val padTop = config.screenHeightDp.dp / 16
     val gap = config.screenHeightDp.dp / 9
 
-    Column(
+    Box(
         Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .padding(horizontal = padLR)
-            .padding(top = padTop),
-        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text("Volver", color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier
-                .align(Alignment.Start)
-                .clickable { onBack() })
-        Spacer(Modifier.height(gap))
-        Text(
-            "Introduzca su nuevo correo electrónico",
-            color = MaterialTheme.colorScheme.onBackground,
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+        Column(
+            Modifier
+                .fillMaxSize()
+                .padding(horizontal = padLR)
+                .padding(top = padTop),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Spacer(Modifier.height(gap))
+            Text(
+                "Introduzca su nuevo correo electrónico",
+                color = MaterialTheme.colorScheme.onBackground,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
+            Spacer(Modifier.height(gap))
+            GreenTextField(
+                value = correo,
+                onValueChange = { correo = it },
+                placeholder = "Correo",
+                keyboardType = KeyboardType.Email
+            )
+            Spacer(Modifier.height(gap))
+            PrimaryButton("Enviar", {
+                localError = null
+                if (!correo.contains("@") || !correo.substringAfter("@").contains(".")) {
+                    localError = "Correo inválido"
+                } else {
+                    vm.cambiarCorreo(correo.trim()) { onBack() }
+                }
+            }, enabled = correo.isNotBlank())
+            Spacer(Modifier.height(12.dp))
+            (localError ?: st.error)?.let { Text(it, color = Color.Red) }
+            st.mensaje?.let { Text(it, color = MaterialTheme.colorScheme.onBackground) }
+        }
+        com.example.tfg.ui.components.BackBoton(
+            onClick = onBack,
+            modifier = Modifier.align(Alignment.BottomStart).padding(start = padLR)
         )
-        Spacer(Modifier.height(gap))
-        GreenTextField(
-            value = correo,
-            onValueChange = { correo = it },
-            placeholder = "Correo",
-            keyboardType = KeyboardType.Email
-        )
-        Spacer(Modifier.height(gap))
-        PrimaryButton("Enviar", {
-            localError = null
-            if (!correo.contains("@") || !correo.substringAfter("@").contains(".")) {
-                localError = "Correo inválido"
-            } else {
-                vm.cambiarCorreo(correo.trim()) { onBack() }
-            }
-        }, enabled = correo.isNotBlank())
-        Spacer(Modifier.height(12.dp))
-        (localError ?: st.error)?.let { Text(it, color = Color.Red) }
-        st.mensaje?.let { Text(it, color = MaterialTheme.colorScheme.onBackground) }
     }
 }
 
@@ -218,44 +279,55 @@ fun CambiarCorreoScreen(onBack: () -> Unit) {
 fun CambiarContrasenaScreen(onBack: () -> Unit) {
     val vm: PerfilViewModel = viewModel()
     val st by vm.state.collectAsState()
+    val toast = com.example.tfg.ui.components.rememberToast()
     var actual by remember { mutableStateOf("") }
     var nueva by remember { mutableStateOf("") }
     var nuevaRep by remember { mutableStateOf("") }
     var localError by remember { mutableStateOf<String?>(null) }
 
+    LaunchedEffect(st.mensaje) { st.mensaje?.let { toast.exito(it); vm.limpiar() } }
+    LaunchedEffect(st.error) { st.error?.let { toast.error(it); vm.limpiar() } }
+
     val config = LocalConfiguration.current
     val padLR = config.screenWidthDp.dp / 32
     val padTop = config.screenHeightDp.dp / 16
 
-    Column(
+    Box(
         Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .padding(horizontal = padLR)
-            .padding(top = padTop)
     ) {
-        Text("Volver", color = MaterialTheme.colorScheme.onBackground, modifier = Modifier.clickable { onBack() })
-        Spacer(Modifier.height(24.dp))
-        Text("Cambiar contraseña", color = MaterialTheme.colorScheme.onBackground,
-            fontSize = 22.sp, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(24.dp))
-        GreenTextField(actual, { actual = it }, "Contraseña actual", isPassword = true)
-        Spacer(Modifier.height(12.dp))
-        GreenTextField(nueva, { nueva = it }, "Nueva contraseña", isPassword = true)
-        Spacer(Modifier.height(12.dp))
-        GreenTextField(nuevaRep, { nuevaRep = it }, "Repetir nueva contraseña", isPassword = true)
-        Spacer(Modifier.height(24.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-            PrimaryButton("Guardar", {
-                localError = null
-                if (nueva != nuevaRep) localError = "Las contraseñas no coinciden"
-                else if (nueva.contains(" ")) localError = "La contraseña no puede tener espacios"
-                else if (nueva.length < 4) localError = "Contraseña demasiado corta"
-                else vm.cambiarContrasena(actual, nueva) { onBack() }
-            }, enabled = actual.isNotBlank() && nueva.isNotBlank() && nuevaRep.isNotBlank())
+        Column(
+            Modifier
+                .fillMaxSize()
+                .padding(horizontal = padLR)
+                .padding(top = padTop)
+        ) {
+            Text("Cambiar contraseña", color = MaterialTheme.colorScheme.onBackground,
+                fontSize = 22.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(24.dp))
+            GreenTextField(actual, { actual = it }, "Contraseña actual", isPassword = true)
+            Spacer(Modifier.height(12.dp))
+            GreenTextField(nueva, { nueva = it }, "Nueva contraseña", isPassword = true)
+            Spacer(Modifier.height(12.dp))
+            GreenTextField(nuevaRep, { nuevaRep = it }, "Repetir nueva contraseña", isPassword = true)
+            Spacer(Modifier.height(24.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                PrimaryButton("Guardar", {
+                    localError = null
+                    if (nueva != nuevaRep) localError = "Las contraseñas no coinciden"
+                    else if (nueva.contains(" ")) localError = "La contraseña no puede tener espacios"
+                    else if (nueva.length < 4) localError = "Contraseña demasiado corta"
+                    else vm.cambiarContrasena(actual, nueva) { onBack() }
+                }, enabled = actual.isNotBlank() && nueva.isNotBlank() && nuevaRep.isNotBlank())
+            }
+            Spacer(Modifier.height(12.dp))
+            (localError ?: st.error)?.let { Text(it, color = Color.Red) }
+            st.mensaje?.let { Text(it, color = MaterialTheme.colorScheme.onBackground) }
         }
-        Spacer(Modifier.height(12.dp))
-        (localError ?: st.error)?.let { Text(it, color = Color.Red) }
-        st.mensaje?.let { Text(it, color = MaterialTheme.colorScheme.onBackground) }
+        com.example.tfg.ui.components.BackBoton(
+            onClick = onBack,
+            modifier = Modifier.align(Alignment.BottomStart).padding(start = padLR)
+        )
     }
 }

@@ -17,6 +17,13 @@ data class PerfilState(
     val error: String? = null
 )
 
+data class CuentaInfo(
+    val nombre: String? = null,
+    val nombreUsuario: String? = null,
+    val email: String? = null,
+    val tagAmigo: String? = null
+)
+
 class PerfilViewModel : BaseVM() {
 
     val sessionState = combine(
@@ -29,6 +36,22 @@ class PerfilViewModel : BaseVM() {
 
     private val _state = MutableStateFlow(PerfilState())
     val state = _state.asStateFlow()
+
+    private val _cuenta = MutableStateFlow(CuentaInfo())
+    val cuenta = _cuenta.asStateFlow()
+
+    fun cargarCuenta() {
+        viewModelScope.launch {
+            repo.obtenerMiUsuario().onSuccess {
+                _cuenta.value = CuentaInfo(
+                    nombre = it.nombre,
+                    nombreUsuario = it.nombreUsuario,
+                    email = it.email,
+                    tagAmigo = it.tagAmigo
+                )
+            }
+        }
+    }
 
     fun toggleTemaOscuro(value: Boolean) {
         viewModelScope.launch {

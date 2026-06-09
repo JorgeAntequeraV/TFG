@@ -1,6 +1,7 @@
 package com.example.tfg.data.repository
 
 import com.example.tfg.data.api.ApiService
+import com.example.tfg.data.local.PresetsCache
 import com.example.tfg.data.model.*
 import com.example.tfg.data.session.SessionManager
 import com.example.tfg.data.util.JwtUtil
@@ -8,7 +9,8 @@ import retrofit2.HttpException
 
 class Repository(
     private val api: ApiService,
-    private val session: SessionManager
+    private val session: SessionManager,
+    private val presets: PresetsCache
 ) {
 
     suspend fun login(usuario: String, contrasena: String): Result<String> = runCatching {
@@ -18,13 +20,27 @@ class Repository(
         token
     }.recoverCatching { throw mapError(it) }
 
-    suspend fun registro(req: UsuarioRegistro): Result<RegistroResponse> = runCatching {
-        api.registro(req)
+    suspend fun loginConGoogle(idToken: String): Result<String> = runCatching {
+        val response = api.loginGoogle(GoogleLoginRequest(idToken))
+        val token = response.token.trim('"')
+        val claims = JwtUtil.parse(token)
+        session.saveSession(token, claims?.userId, claims?.sub, claims?.role)
+        token
+    }.recoverCatching { throw mapError(it) }
+
+    suspend fun registro(req: UsuarioRegistro, recaptchaToken: String? = null): Result<RegistroResponse> = runCatching {
+        api.registro(recaptchaToken, req)
     }.recoverCatching { throw mapError(it) }
 
     suspend fun logout() {
         session.clear()
     }
+
+    suspend fun obtenerMiUsuario() = safe { api.miPerfil() }
+
+    // ===== Auth público — recuperación de contraseña =====
+    suspend fun forgotPassword(nombreUsuario: String) = safe { api.forgotPassword(ForgotPasswordRequest(nombreUsuario)) }
+    suspend fun resetPassword(token: String, nuevaContrasena: String) = safe { api.resetPassword(ResetPasswordRequest(token, nuevaContrasena)) }
 
     // listas
     suspend fun obtenerListas() = safe { api.obtenerListas() }
@@ -77,9 +93,26 @@ class Repository(
     suspend fun adminCambiarRol(id: Long, rol: String) = safe { api.adminCambiarRol(id, CambiarRolRequest(rol)) }
     suspend fun adminEliminarUsuario(id: Long) = safe { api.adminEliminarUsuario(id) }
 
-    // presets
+    // presets — directos a la API
     suspend fun obtenerSupermercadosDefecto() = safe { api.obtenerSupermercadosDefecto() }
     suspend fun obtenerProductosDefecto() = safe { api.obtenerProductosDefecto() }
+
+
+    suspend fun obtenerProductosDefectoCacheados(): Result<List<ProductoCatalogoDTO>> = runCatching {
+        presets.productosCacheados()?.let { return@runCatching it }
+        val frescos = api.obtenerProductosDefecto()
+        presets.guardarProductos(frescos)
+        frescos
+    }.recoverCatching { throw mapError(it) }
+
+    suspend fun obtenerSupermercadosDefectoCacheados(): Result<List<String>> = runCatching {
+        presets.supermercadosCacheados()?.let { return@runCatching it }
+        val frescos = api.obtenerSupermercadosDefecto()
+        presets.guardarSupermercados(frescos)
+        frescos
+    }.recoverCatching { throw mapError(it) }
+
+    suspend fun limpiarPresetsCache() = presets.limpiar()
 
     private suspend fun <T> safe(block: suspend () -> T): Result<T> = runCatching { block() }
         .recoverCatching { throw mapError(it) }
@@ -90,13 +123,21 @@ class Repository(
                 val body = e.response()?.errorBody()?.string()
                 if (!body.isNullOrEmpty()) {
                     val json = org.json.JSONObject(body)
-                    json.optString("message").ifEmpty { "Error ${e.code()}" }
+                    json.optString("message")
+                        .ifEmpty { json.optString("error") }
+                        .ifEmpty { "Error ${e.code()}" }
                 } else "Error ${e.code()}"
             } catch (_: Exception) {
                 "Error ${e.code()}"
             }
             return RuntimeException(msg)
         }
-        return RuntimeException(e.message ?: "Error de red")
+        if (e is java.net.UnknownHostException ||
+            e is java.net.ConnectException ||
+            e is java.net.SocketTimeoutException ||
+            e is java.io.IOException) {
+            return RuntimeException("No se pudo conectar con el servidor. Comprueba tu conexión o que la API esté arrancada.")
+        }
+        return RuntimeException(e.message ?: "Error desconocido")
     }
 }

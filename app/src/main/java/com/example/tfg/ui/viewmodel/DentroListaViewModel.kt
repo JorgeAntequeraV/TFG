@@ -11,6 +11,7 @@ data class DentroListaState(
     val loading: Boolean = false,
     val lista: ListaDTO? = null,
     val seleccion: Set<Long> = emptySet(),
+    val mensaje: String? = null,
     val error: String? = null
 )
 
@@ -33,64 +34,95 @@ class DentroListaViewModel : BaseVM() {
 
     fun renombrar(nombre: String, onDone: () -> Unit = {}) {
         viewModelScope.launch {
-            repo.renombrarLista(listaId, nombre).onSuccess {
-                cargar(listaId); onDone()
-            }
+            repo.renombrarLista(listaId, nombre)
+                .onSuccess { _state.value = _state.value.copy(mensaje = "Lista renombrada"); cargar(listaId); onDone() }
+                .onFailure { _state.value = _state.value.copy(error = it.message ?: "No se pudo renombrar") }
         }
     }
 
     fun configurar(asc: Boolean, mostrarPrecios: Boolean, onDone: () -> Unit = {}) {
         viewModelScope.launch {
-            repo.configurarLista(listaId, asc, mostrarPrecios).onSuccess {
-                cargar(listaId); onDone()
-            }
+            repo.configurarLista(listaId, asc, mostrarPrecios)
+                .onSuccess { cargar(listaId); onDone() }
+                .onFailure { _state.value = _state.value.copy(error = it.message ?: "No se pudo guardar la configuración") }
         }
     }
 
     fun anadirItem(p: ProductoListaDTO, onDone: () -> Unit = {}) {
         viewModelScope.launch {
-            repo.anadirItem(listaId, p).onSuccess {
-                cargar(listaId); onDone()
-            }.onFailure { _state.value = _state.value.copy(error = it.message) }
+            repo.anadirItem(listaId, p)
+                .onSuccess { _state.value = _state.value.copy(mensaje = "Producto añadido"); cargar(listaId); onDone() }
+                .onFailure { _state.value = _state.value.copy(error = it.message ?: "No se pudo añadir") }
         }
     }
 
     fun editarItem(idProd: Long, p: ProductoListaDTO, onDone: () -> Unit = {}) {
         viewModelScope.launch {
-            repo.editarItem(listaId, idProd, p).onSuccess {
-                cargar(listaId); onDone()
-            }
+            repo.editarItem(listaId, idProd, p)
+                .onSuccess { cargar(listaId); onDone() }
+                .onFailure { _state.value = _state.value.copy(error = it.message ?: "No se pudo editar") }
         }
     }
 
     fun eliminarItem(idProd: Long) {
         viewModelScope.launch {
-            repo.eliminarItem(listaId, idProd).onSuccess { cargar(listaId) }
+            repo.eliminarItem(listaId, idProd)
+                .onSuccess { cargar(listaId) }
+                .onFailure { _state.value = _state.value.copy(error = it.message ?: "No se pudo eliminar") }
         }
     }
 
     fun eliminarSeleccionados() {
         viewModelScope.launch {
             _state.value.seleccion.forEach { repo.eliminarItem(listaId, it) }
+            _state.value = _state.value.copy(mensaje = "Productos eliminados")
             limpiarSeleccion()
             cargar(listaId)
         }
     }
 
+
+    fun eliminarVarios(ids: Collection<Long>, onDone: () -> Unit = {}) {
+        viewModelScope.launch {
+            var fallos = 0
+            ids.forEach { id ->
+                repo.eliminarItem(listaId, id).onFailure { fallos++ }
+            }
+            if (fallos > 0) {
+                _state.value = _state.value.copy(error = "No se pudieron eliminar $fallos producto(s)")
+            } else {
+                _state.value = _state.value.copy(mensaje = "Compra realizada (${ids.size} producto(s))")
+            }
+            cargar(listaId)
+            onDone()
+        }
+    }
+
     fun copiarSeleccionadosA(idDestino: Long, onDone: () -> Unit = {}) {
         viewModelScope.launch {
-            repo.copiarItems(idDestino, _state.value.seleccion.toList()).onSuccess {
-                limpiarSeleccion(); onDone()
-            }
+            repo.copiarItems(idDestino, _state.value.seleccion.toList())
+                .onSuccess {
+                    _state.value = _state.value.copy(mensaje = "Productos copiados")
+                    limpiarSeleccion()
+                    onDone()
+                }
+                .onFailure {
+                    _state.value = _state.value.copy(error = it.message ?: "Error al copiar")
+                    onDone() // cierra el sheet aunque falle, para no dejar al usuario atrapado
+                }
         }
     }
 
     fun anadirDesdeFavorito(idFav: Long, onDone: () -> Unit = {}) {
         viewModelScope.launch {
-            repo.anadirDesdeFavorito(listaId, idFav).onSuccess {
-                cargar(listaId); onDone()
-            }
+            repo.anadirDesdeFavorito(listaId, idFav)
+                .onSuccess { _state.value = _state.value.copy(mensaje = "Producto añadido"); cargar(listaId); onDone() }
+                .onFailure { _state.value = _state.value.copy(error = it.message ?: "No se pudo añadir") }
         }
+    }
+
+    fun limpiarMensaje() {
+        _state.value = _state.value.copy(mensaje = null, error = null)
     }
 
     fun toggleSeleccion(id: Long) {
@@ -106,8 +138,15 @@ class DentroListaViewModel : BaseVM() {
     fun compartirCon(tag: String, onDone: () -> Unit, onError: (String) -> Unit) {
         viewModelScope.launch {
             repo.enviarInvitacion(listaId, tag)
-                .onSuccess { onDone() }
-                .onFailure { onError(it.message ?: "Error") }
+                .onSuccess {
+                    _state.value = _state.value.copy(mensaje = "Invitación enviada")
+                    onDone()
+                }
+                .onFailure {
+                    val msg = it.message ?: "No se pudo invitar"
+                    _state.value = _state.value.copy(error = msg)
+                    onError(msg)
+                }
         }
     }
 }

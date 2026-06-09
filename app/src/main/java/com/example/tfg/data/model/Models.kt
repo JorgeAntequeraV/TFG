@@ -30,6 +30,27 @@ data class CambiarContrasenaRequest(
 )
 
 @JsonClass(generateAdapter = true)
+data class ForgotPasswordRequest(
+    val nombreUsuario: String
+)
+
+@JsonClass(generateAdapter = true)
+data class ResetPasswordRequest(
+    val token: String,
+    val nuevaContrasena: String
+)
+
+@JsonClass(generateAdapter = true)
+data class GoogleLoginRequest(
+    val idToken: String
+)
+
+@JsonClass(generateAdapter = true)
+data class TokenResponse(
+    val token: String
+)
+
+@JsonClass(generateAdapter = true)
 data class UsuarioDTO(
     val id: Long? = null,
     val nombre: String? = null,

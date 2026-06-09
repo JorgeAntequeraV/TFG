@@ -18,10 +18,16 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.tfg.ui.components.BackBoton
 import com.example.tfg.ui.components.GreenTextField
 import com.example.tfg.ui.components.PrimaryButton
+import com.example.tfg.ui.components.RecaptchaWebView
+import com.example.tfg.ui.components.rememberRecaptchaController
+import com.example.tfg.ui.components.rememberToast
 import com.example.tfg.ui.theme.GreenAccent
 import com.example.tfg.ui.viewmodel.AuthViewModel
+
+private enum class CaptchaState { IDLE, VERIFICANDO, OK, ERROR }
 
 @Composable
 fun RegistroScreen(
@@ -35,15 +41,21 @@ fun RegistroScreen(
     var email by remember { mutableStateOf("") }
     var usuario by remember { mutableStateOf("") }
     var contrasena by remember { mutableStateOf("") }
-    var noSoyRobot by remember { mutableStateOf(false) }
+    var recaptchaToken by remember { mutableStateOf<String?>(null) }
+    var captchaState by remember { mutableStateOf(CaptchaState.IDLE) }
     var localError by remember { mutableStateOf<String?>(null) }
 
+    val recaptchaController = rememberRecaptchaController()
+
+    val toast = rememberToast()
     LaunchedEffect(state.success) {
         if (state.success) {
+            toast.exito("Cuenta creada con éxito")
             onRegistroSuccess()
             vm.reset()
         }
     }
+    LaunchedEffect(state.error) { state.error?.let { toast.error(it) } }
 
     val config = LocalConfiguration.current
     val padTopBottom = config.screenHeightDp.dp / 16
@@ -60,13 +72,33 @@ fun RegistroScreen(
         if (usuario.contains(" ") || !usuario.matches(Regex("^[A-Za-z0-9_]+$"))) {
             localError = "Usuario no válido"; return
         }
-        vm.registro(nombre.trim(), email.trim(), usuario.trim(), contrasena)
+        if (recaptchaToken.isNullOrBlank()) {
+            localError = "Marca 'No soy un robot'"; return
+        }
+        vm.registro(nombre.trim(), email.trim(), usuario.trim(), contrasena, recaptchaToken)
     }
 
+//Necesita un click del usuariuo para activarse
+    RecaptchaWebView(
+        controller = recaptchaController,
+        onTokenReceived = { token ->
+            recaptchaToken = token
+            captchaState = CaptchaState.OK
+        },
+        onError = {
+            recaptchaToken = null
+            captchaState = CaptchaState.ERROR
+        }
+    )
+
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+    ) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
             .padding(horizontal = padLeftRight, vertical = padTopBottom),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -90,26 +122,49 @@ fun RegistroScreen(
         GreenTextField(value = contrasena, onValueChange = { contrasena = it }, placeholder = "Contraseña", isPassword = true)
 
         Spacer(Modifier.height(24.dp))
-        // reCAPTCHA visual — pendiente de integración (no bloquea el registro)
+        //Pulsar oara activar el captcha, si no se me caducaban
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .border(1.dp, MaterialTheme.colorScheme.onBackground, RoundedCornerShape(6.dp))
+                .clickable(enabled = captchaState == CaptchaState.IDLE || captchaState == CaptchaState.ERROR) {
+                    captchaState = CaptchaState.VERIFICANDO
+                    recaptchaController.execute()
+                }
                 .padding(horizontal = 12.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
                 Modifier
                     .size(28.dp)
-                    .background(if (noSoyRobot) GreenAccent else Color.Transparent, RoundedCornerShape(4.dp))
-                    .border(2.dp, MaterialTheme.colorScheme.onBackground, RoundedCornerShape(4.dp))
-                    .clickable { noSoyRobot = !noSoyRobot },
+                    .background(
+                        if (captchaState == CaptchaState.OK) GreenAccent else Color.Transparent,
+                        RoundedCornerShape(4.dp)
+                    )
+                    .border(2.dp, MaterialTheme.colorScheme.onBackground, RoundedCornerShape(4.dp)),
                 contentAlignment = Alignment.Center
             ) {
-                if (noSoyRobot) Icon(Icons.Default.Check, null, tint = Color.Black)
+                when (captchaState) {
+                    CaptchaState.OK -> Icon(Icons.Default.Check, null, tint = Color.Black)
+                    CaptchaState.VERIFICANDO -> CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+                    else -> Unit
+                }
             }
             Spacer(Modifier.width(12.dp))
-            Text("No soy un robot", color = MaterialTheme.colorScheme.onBackground, fontSize = 14.sp)
+            Text(
+                when (captchaState) {
+                    CaptchaState.IDLE -> "No soy un robot"
+                    CaptchaState.VERIFICANDO -> "Verificando…"
+                    CaptchaState.OK -> "No soy un robot"
+                    CaptchaState.ERROR -> "Error — toca para reintentar"
+                },
+                color = MaterialTheme.colorScheme.onBackground,
+                fontSize = 14.sp
+            )
         }
 
         Spacer(Modifier.height(28.dp))
@@ -117,15 +172,8 @@ fun RegistroScreen(
             text = "Crear cuenta",
             onClick = { validarYRegistrar() },
             modifier = Modifier.fillMaxWidth(0.6f),
-            enabled = nombre.isNotBlank() && usuario.isNotBlank() && email.isNotBlank() && contrasena.isNotBlank() && !state.loading
-        )
-
-        Spacer(Modifier.height(12.dp))
-        Text(
-            "Volver",
-            color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier.clickable { onBack() },
-            fontSize = 14.sp
+            enabled = nombre.isNotBlank() && usuario.isNotBlank() && email.isNotBlank() &&
+                contrasena.isNotBlank() && captchaState == CaptchaState.OK && !state.loading
         )
 
         if (state.loading) {
@@ -136,5 +184,7 @@ fun RegistroScreen(
             Spacer(Modifier.height(8.dp))
             Text(it, color = Color.Red, textAlign = TextAlign.Center)
         }
+    }
+        BackBoton(onClick = onBack, modifier = Modifier.align(Alignment.BottomStart).padding(start = padLeftRight))
     }
 }

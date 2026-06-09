@@ -401,7 +401,7 @@ private fun PreviewCopiar() {
     }
 }
 
-// ===================== 12 - CLICK PRECIO (sheet) =====================
+// ===================== 12 - CLICK PRECIO=====================
 
 @Preview(name = "12 - ClickPrecio (sheet)", device = DEVICE, showBackground = true)
 @Composable

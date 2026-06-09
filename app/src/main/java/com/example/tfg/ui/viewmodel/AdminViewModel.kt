@@ -10,6 +10,7 @@ data class AdminState(
     val loading: Boolean = false,
     val usuarios: List<AdminUsuarioDTO> = emptyList(),
     val query: String = "",
+    val mensaje: String? = null,
     val error: String? = null
 )
 
@@ -22,7 +23,7 @@ class AdminViewModel : BaseVM() {
             _state.value = _state.value.copy(loading = true)
             repo.adminListarUsuarios(q)
                 .onSuccess { _state.value = _state.value.copy(loading = false, usuarios = it, error = null) }
-                .onFailure { _state.value = _state.value.copy(loading = false, error = it.message) }
+                .onFailure { _state.value = _state.value.copy(loading = false, error = it.message ?: "No se pudieron cargar los usuarios") }
         }
     }
 
@@ -33,15 +34,21 @@ class AdminViewModel : BaseVM() {
 
     fun cambiarRol(id: Long, nuevoRol: String) {
         viewModelScope.launch {
-            repo.adminCambiarRol(id, nuevoRol).onSuccess { cargar() }
-                .onFailure { _state.value = _state.value.copy(error = it.message) }
+            repo.adminCambiarRol(id, nuevoRol)
+                .onSuccess { _state.value = _state.value.copy(mensaje = "Rol actualizado a $nuevoRol"); cargar() }
+                .onFailure { _state.value = _state.value.copy(error = it.message ?: "No se pudo cambiar el rol") }
         }
     }
 
     fun eliminar(id: Long) {
         viewModelScope.launch {
-            repo.adminEliminarUsuario(id).onSuccess { cargar() }
-                .onFailure { _state.value = _state.value.copy(error = it.message) }
+            repo.adminEliminarUsuario(id)
+                .onSuccess { _state.value = _state.value.copy(mensaje = "Usuario eliminado"); cargar() }
+                .onFailure { _state.value = _state.value.copy(error = it.message ?: "No se pudo eliminar") }
         }
+    }
+
+    fun limpiarMensaje() {
+        _state.value = _state.value.copy(mensaje = null, error = null)
     }
 }

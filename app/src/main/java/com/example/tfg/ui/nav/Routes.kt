@@ -14,6 +14,10 @@ object Routes {
     const val ADMIN = "admin"
     const val NOTIFICACIONES = "notificaciones"
     const val AMIGOS = "amigos"
+    const val FORGOT_PASSWORD = "forgot-password"
+
+    const val RESET_PASSWORD = "reset-password?token={token}"
+    fun resetPassword(token: String) = "reset-password?token=$token"
 
     fun dentroLista(id: Long) = "lista/$id"
     fun addItemLista(id: Long) = "lista/$id/add"

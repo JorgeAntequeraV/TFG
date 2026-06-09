@@ -27,11 +27,14 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.tfg.data.model.ListaDTO
 import com.example.tfg.data.model.ProductoListaDTO
+import com.example.tfg.ui.components.BackBoton
 import com.example.tfg.ui.components.GreenTextField
 import com.example.tfg.ui.components.PrimaryButton
 import com.example.tfg.ui.theme.GreenAccent
 import com.example.tfg.ui.theme.GreenDark
 import com.example.tfg.ui.theme.GreenMedium
+import com.example.tfg.ui.theme.RedComprado
+import com.example.tfg.ui.theme.RedCompradoDark
 import com.example.tfg.ui.viewmodel.DentroListaViewModel
 import com.example.tfg.ui.viewmodel.ListasViewModel
 
@@ -52,7 +55,19 @@ fun DentroListaScreen(
     var itemPulsado by remember { mutableStateOf<ProductoListaDTO?>(null) }
     var precioItem by remember { mutableStateOf<ProductoListaDTO?>(null) }
 
+    var modoCompra by remember { mutableStateOf(false) }
+    var comprados by remember { mutableStateOf<Set<Long>>(emptySet()) }
+    // Si la lista cambia, reseteamos
+    LaunchedEffect(listaId) {
+        modoCompra = false
+        comprados = emptySet()
+    }
+
     LaunchedEffect(listaId) { vm.cargar(listaId) }
+
+    val toast = com.example.tfg.ui.components.rememberToast()
+    LaunchedEffect(state.mensaje) { state.mensaje?.let { toast.exito(it); vm.limpiarMensaje() } }
+    LaunchedEffect(state.error) { state.error?.let { toast.error(it); vm.limpiarMensaje() } }
 
     val config = LocalConfiguration.current
     val padTop = config.screenHeightDp.dp / 16
@@ -62,6 +77,9 @@ fun DentroListaScreen(
     val productos = lista?.productos ?: emptyList()
     val ordenados = if (lista?.ordenAscendente != false) productos.sortedBy { it.nombre.lowercase() }
     else productos.sortedByDescending { it.nombre.lowercase() }
+    //En modo compra separamos los pendientes de los comprados
+    val pendientes = if (modoCompra) ordenados.filter { it.id !in comprados } else ordenados
+    val rojos = if (modoCompra) ordenados.filter { it.id in comprados } else emptyList()
 
     Box(
         Modifier
@@ -72,7 +90,7 @@ fun DentroListaScreen(
     ) {
         Column(Modifier.fillMaxSize()) {
             Row(
-                Modifier.fillMaxWidth(),
+                Modifier.fillMaxWidth().height(56.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
@@ -80,7 +98,7 @@ fun DentroListaScreen(
                     color = MaterialTheme.colorScheme.onBackground,
                     fontSize = 22.sp,
                     fontWeight = FontWeight.Bold,
-                    modifier = Modifier.weight(1f).clickable { onBack() }
+                    modifier = Modifier.weight(1f)
                 )
                 Icon(
                     Icons.Default.PersonAdd,
@@ -104,63 +122,177 @@ fun DentroListaScreen(
                 )
             }
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(12.dp))
+
+            // Botón "Modo compra" centrado
+            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                ModoCompraToggle(
+                    activo = modoCompra,
+                    onClick = {
+                        modoCompra = !modoCompra
+                        if (!modoCompra) comprados = emptySet()
+                    }
+                )
+            }
+
+            Spacer(Modifier.height(12.dp))
 
             if (state.loading) CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
             state.error?.let { Text(it, color = Color.Red) }
 
             LazyColumn(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
+                contentPadding = PaddingValues(bottom = 200.dp)
             ) {
-                items(ordenados, key = { it.id ?: 0 }) { p ->
+                items(pendientes, key = { it.id ?: 0 }) { p ->
                     ItemCard(
                         producto = p,
                         seleccionado = p.id in state.seleccion,
+                        enRojo = false,
                         mostrarPrecio = lista?.mostrarPrecios == true,
                         onTap = {
-                            if (state.seleccion.isNotEmpty()) {
-                                p.id?.let { vm.toggleSeleccion(it) }
-                            } else itemPulsado = p
+                            when {
+                                modoCompra -> p.id?.let { id -> comprados = comprados + id }
+                                state.seleccion.isNotEmpty() -> p.id?.let { vm.toggleSeleccion(it) }
+                                else -> itemPulsado = p
+                            }
                         },
-                        onLong = { p.id?.let { vm.toggleSeleccion(it) } },
-                        onPrecioClick = { precioItem = p }
+                        onLong = {
+                            if (!modoCompra) p.id?.let { vm.toggleSeleccion(it) }
+                        },
+                        onPrecioClick = { if (!modoCompra) precioItem = p }
                     )
                 }
                 if (lista?.mostrarPrecios == true) {
                     item {
-                        Row(
+
+                        if (modoCompra && rojos.isNotEmpty()) {
+                            Row(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 16.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    "Total pendiente:",
+                                    color = MaterialTheme.colorScheme.onBackground,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    String.format("%.2f €", totalDeProductos(pendientes)),
+                                    color = MaterialTheme.colorScheme.onBackground,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        } else {
+                            Row(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 16.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text("Total:", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold)
+                                Text(
+                                    String.format("%.2f €", totalDeProductos(productos)),
+                                    color = MaterialTheme.colorScheme.onBackground,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+                }
+
+                if (modoCompra && rojos.isNotEmpty()) {
+                    item {
+                        Box(
                             Modifier
                                 .fillMaxWidth()
-                                .padding(top = 16.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween
+                                .padding(top = 16.dp, bottom = 4.dp)
+                                .background(RedCompradoDark, RoundedCornerShape(12.dp))
+                                .padding(horizontal = 12.dp, vertical = 8.dp)
                         ) {
-                            Text("Total:", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold)
-                            Text(
-                                String.format("%.2f €", lista.total ?: 0.0),
-                                color = MaterialTheme.colorScheme.onBackground,
-                                fontWeight = FontWeight.Bold
-                            )
+                            Text("Comprados", color = Color.White, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                    items(rojos, key = { "rojo-${it.id ?: 0}" }) { p ->
+                        ItemCard(
+                            producto = p,
+                            seleccionado = false,
+                            enRojo = true,
+                            mostrarPrecio = lista?.mostrarPrecios == true,
+                            onTap = { p.id?.let { id -> comprados = comprados - id } },
+                            onLong = { },
+                            onPrecioClick = { }
+                        )
+                    }
+
+                    if (lista?.mostrarPrecios == true) {
+                        item {
+                            Row(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    "Total comprado:",
+                                    color = RedComprado,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    String.format("%.2f €", totalDeProductos(rojos)),
+                                    color = RedComprado,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
                         }
                     }
                 }
             }
         }
 
-        // FAB +
+        // Botón "volver" inferior izquierdo (lado opuesto al "+")
+        BackBoton(onClick = onBack, modifier = Modifier.align(Alignment.BottomStart))
 
-        Box(
-            Modifier
-                .align(Alignment.BottomEnd)
-                .padding(bottom = 16.dp)
-                .size(56.dp)
-                .background(GreenAccent, CircleShape)
-                .clickable { onAnadirItem() },
-            contentAlignment = Alignment.Center,
-
-
-        ) {
-            Icon(Icons.Default.Add, null, tint = Color.Black, modifier = Modifier.size(28.dp))
+        // FAB inferior derecho — "+" en modo normal, "Comprar" en modo compra
+        if (modoCompra) {
+            Box(
+                Modifier
+                    .align(Alignment.BottomEnd)
+                    .navigationBarsPadding()
+                    .padding(bottom = 16.dp)
+                    .background(GreenAccent, RoundedCornerShape(28.dp))
+                    .clickable(enabled = comprados.isNotEmpty()) {
+                        // captura una copia y elimina secuencialmente, recargando al final
+                        val aEliminar = comprados.toSet()
+                        vm.eliminarVarios(aEliminar) {
+                            comprados = comprados - aEliminar
+                            if (comprados.isEmpty()) modoCompra = false
+                        }
+                    }
+                    .padding(horizontal = 24.dp, vertical = 16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    "Comprar",
+                    color = if (comprados.isNotEmpty()) Color.Black else Color.Black.copy(alpha = 0.4f),
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        } else {
+            Box(
+                Modifier
+                    .align(Alignment.BottomEnd)
+                    .navigationBarsPadding()
+                    .padding(bottom = 16.dp)
+                    .size(56.dp)
+                    .background(GreenAccent, CircleShape)
+                    .clickable { onAnadirItem() },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Default.Add, null, tint = Color.Black, modifier = Modifier.size(28.dp))
+            }
         }
     }
 
@@ -231,12 +363,18 @@ fun DentroListaScreen(
 private fun ItemCard(
     producto: ProductoListaDTO,
     seleccionado: Boolean,
+    enRojo: Boolean = false,
     mostrarPrecio: Boolean,
     onTap: () -> Unit,
     onLong: () -> Unit,
     onPrecioClick: () -> Unit
 ) {
-    val color = if (seleccionado) GreenDark else GreenMedium
+    val color = when {
+        enRojo -> RedComprado
+        seleccionado -> GreenDark
+        else -> GreenMedium
+    }
+    val precioBg = if (enRojo) RedCompradoDark else GreenDark
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -262,10 +400,10 @@ private fun ItemCard(
         Spacer(Modifier.weight(1f))
         if (mostrarPrecio) {
             Text(
-                String.format("%.2f €", producto.precio ?: 0.0),
+                String.format("%.2f €", subtotalDe(producto)),
                 color = Color.White,
                 modifier = Modifier
-                    .background(GreenDark, RoundedCornerShape(8.dp))
+                    .background(precioBg, RoundedCornerShape(8.dp))
                     .clickable { onPrecioClick() }
                     .padding(horizontal = 10.dp, vertical = 6.dp)
             )
@@ -273,14 +411,85 @@ private fun ItemCard(
     }
 }
 
+@Composable
+private fun ModoCompraToggle(activo: Boolean, onClick: () -> Unit) {
+    val bg = if (activo) GreenAccent else GreenMedium
+    val txt = if (activo) Color.Black else Color.White
+    Box(
+        Modifier
+            .background(bg, RoundedCornerShape(20.dp))
+            .clickable { onClick() }
+            .padding(horizontal = 20.dp, vertical = 10.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text("Modo compra", color = txt, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+private fun subtotalDe(p: ProductoListaDTO): Double {
+    val precio = p.precio ?: 0.0
+    val cant = p.cantidad?.replace(",", ".")?.toDoubleOrNull() ?: 1.0
+    val mult = if (cant <= 0.0) 1.0 else cant
+    return precio * mult
+}
+
+internal fun totalDeProductos(productos: List<ProductoListaDTO>): Double =
+    productos.sumOf { subtotalDe(it) }
+
 // ====== Sheets ======
 
 @Composable
 fun CompartirSheet(onEnviar: (String) -> Unit) {
     var tag by remember { mutableStateOf("") }
-    Column(Modifier.fillMaxWidth().padding(16.dp)) {
+
+    // Carga la lista de amigos del usuario para poder invitar con un click.
+    val amigosVm: com.example.tfg.ui.viewmodel.AmigosViewModel = viewModel()
+    val amigosState by amigosVm.state.collectAsState()
+    LaunchedEffect(Unit) { amigosVm.cargar() }
+
+    Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(16.dp)) {
         Text("Compartir lista", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(12.dp))
+
+        if (amigosState.amigos.isNotEmpty()) {
+            Text("Tus amigos", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(8.dp))
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 220.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                items(amigosState.amigos, key = { it.id }) { amigo ->
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .background(GreenDark, RoundedCornerShape(10.dp))
+                            .clickable {
+                                amigo.tagAmigo?.let { t -> if (t.isNotBlank()) onEnviar(t) }
+                            }
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(amigo.nombreUsuario ?: "?", color = Color.White, fontWeight = FontWeight.SemiBold)
+                        Spacer(Modifier.weight(1f))
+                        Text(
+                            amigo.tagAmigo ?: "",
+                            color = Color.White.copy(alpha = 0.8f),
+                            fontSize = 13.sp
+                        )
+                    }
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+            Text(
+                "O introduce un tag manualmente:",
+                color = Color.White.copy(alpha = 0.8f),
+                fontSize = 13.sp
+            )
+            Spacer(Modifier.height(8.dp))
+        }
+
         GreenTextField(value = tag, onValueChange = { tag = it.uppercase() },
             placeholder = "Tag de amigo (8 caracteres)", background = GreenDark)
         Spacer(Modifier.height(16.dp))
@@ -300,7 +509,7 @@ fun OpcionesSheet(
     var asc by remember { mutableStateOf(lista.ordenAscendente ?: true) }
     var mostrar by remember { mutableStateOf(lista.mostrarPrecios ?: false) }
 
-    Column(Modifier.fillMaxWidth().padding(16.dp)) {
+    Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(16.dp)) {
         GreenTextField(value = nombre, onValueChange = { nombre = it },
             placeholder = "Cambiar nombre de la lista", background = GreenDark)
         Spacer(Modifier.height(12.dp))
@@ -343,7 +552,7 @@ private fun ToggleBtn(text: String, sel: Boolean, onClick: () -> Unit, modifier:
 
 @Composable
 fun MantenerSheet(onCopiar: () -> Unit, onEliminar: () -> Unit) {
-    Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         PrimaryButton("Copiar", onCopiar, modifier = Modifier.fillMaxWidth())
         PrimaryButton("Eliminar", onEliminar, modifier = Modifier.fillMaxWidth())
         Spacer(Modifier.height(8.dp))
@@ -356,7 +565,7 @@ fun CopiarASheet(excluirId: Long, onCopiarA: (Long) -> Unit) {
     val st by listasVm.state.collectAsState()
     LaunchedEffect(Unit) { listasVm.cargar() }
 
-    Column(Modifier.fillMaxWidth().padding(16.dp)) {
+    Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(16.dp)) {
         Text("Copiar a:", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(12.dp))
         st.listas.filter { it.id != excluirId }.forEach { l ->
@@ -380,13 +589,44 @@ fun PulsarItemSheet(producto: ProductoListaDTO, onGuardar: (ProductoListaDTO) ->
     var nombre by remember { mutableStateOf(producto.nombre) }
     var unidad by remember { mutableStateOf(producto.unidadMedida ?: "") }
     var cantidad by remember { mutableStateOf(producto.cantidad ?: "") }
+    var precio by remember { mutableStateOf(producto.precio?.let { if (it == 0.0) "" else it.toString() } ?: "") }
 
     fun setUnidad(u: String) { unidad = u }
     fun cantidadNum() = cantidad.toIntOrNull() ?: 0
 
-    Column(Modifier.fillMaxWidth().padding(16.dp)) {
-        GreenTextField(value = nombre, onValueChange = { nombre = it }, placeholder = "Nombre del producto", background = GreenDark)
+    Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(16.dp)) {
+        // Fila 1: nombre (mitad izquierda) | precio (mitad derecha)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Box(Modifier.weight(1f)) {
+                GreenTextField(
+                    value = nombre,
+                    onValueChange = { nombre = it },
+                    placeholder = "Nombre",
+                    background = GreenDark
+                )
+            }
+            Box(Modifier.weight(1f)) {
+                OutlinedTextField(
+                    value = precio,
+                    onValueChange = { v ->
+                        if (v.matches(Regex("^\\d*(\\.\\d{0,2})?\$"))) precio = v
+                    },
+                    placeholder = { Text("Precio", color = Color.White.copy(alpha = 0.7f)) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    modifier = Modifier.fillMaxWidth().background(GreenDark, RoundedCornerShape(12.dp)),
+                    shape = RoundedCornerShape(12.dp),
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White, unfocusedTextColor = Color.White,
+                        focusedContainerColor = GreenDark, unfocusedContainerColor = GreenDark,
+                        focusedBorderColor = Color.Transparent, unfocusedBorderColor = Color.Transparent,
+                        cursorColor = Color.White
+                    )
+                )
+            }
+        }
         Spacer(Modifier.height(16.dp))
+        // Fila 2: unidad | cantidad (con sus botones debajo)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Column(Modifier.weight(1f)) {
                 GreenTextField(value = unidad, onValueChange = { unidad = it }, placeholder = "Unidad", background = GreenDark)
@@ -450,7 +690,8 @@ fun PulsarItemSheet(producto: ProductoListaDTO, onGuardar: (ProductoListaDTO) ->
                 onGuardar(producto.copy(
                     nombre = nombre,
                     cantidad = cantidad.ifBlank { null },
-                    unidadMedida = unidad.ifBlank { null }
+                    unidadMedida = unidad.ifBlank { null },
+                    precio = precio.toDoubleOrNull()
                 ))
             })
         }
@@ -461,7 +702,7 @@ fun PulsarItemSheet(producto: ProductoListaDTO, onGuardar: (ProductoListaDTO) ->
 @Composable
 fun ClickPrecioSheet(inicial: Double?, onGuardar: (Double) -> Unit) {
     var precio by remember { mutableStateOf(inicial?.toString() ?: "") }
-    Column(Modifier.fillMaxWidth().padding(16.dp)) {
+    Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(16.dp)) {
         OutlinedTextField(
             value = precio,
             onValueChange = { v ->

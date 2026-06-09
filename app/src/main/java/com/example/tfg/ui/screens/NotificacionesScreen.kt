@@ -8,7 +8,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
@@ -32,30 +31,30 @@ import com.example.tfg.ui.viewmodel.NotificacionesViewModel
 fun NotificacionesScreen(onBack: () -> Unit) {
     val vm: NotificacionesViewModel = viewModel()
     val state by vm.state.collectAsState()
+    val toast = com.example.tfg.ui.components.rememberToast()
     LaunchedEffect(Unit) { vm.cargar() }
+    LaunchedEffect(state.mensaje) { state.mensaje?.let { toast.exito(it); vm.limpiarMensaje() } }
+    LaunchedEffect(state.error) { state.error?.let { toast.error(it); vm.limpiarMensaje() } }
 
     val config = LocalConfiguration.current
     val padTop = config.screenHeightDp.dp / 16
     val padLR = config.screenWidthDp.dp / 32
 
+    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
     Column(
         Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
             .padding(horizontal = padLR)
             .padding(top = padTop)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                Icons.Default.ArrowBack, null,
-                tint = MaterialTheme.colorScheme.onBackground,
-                modifier = Modifier.clickable { onBack() }
-            )
-            Spacer(Modifier.width(12.dp))
+        Row(
+            Modifier.fillMaxWidth().height(56.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Text(
                 "Notificaciones",
                 color = MaterialTheme.colorScheme.onBackground,
-                fontSize = 20.sp, fontWeight = FontWeight.Bold
+                fontSize = 22.sp, fontWeight = FontWeight.Bold
             )
         }
         Spacer(Modifier.height(16.dp))
@@ -93,6 +92,11 @@ fun NotificacionesScreen(onBack: () -> Unit) {
                 }
             }
         }
+    }
+        com.example.tfg.ui.components.BackBoton(
+            onClick = onBack,
+            modifier = Modifier.align(Alignment.BottomStart).padding(start = padLR)
+        )
     }
 }
 

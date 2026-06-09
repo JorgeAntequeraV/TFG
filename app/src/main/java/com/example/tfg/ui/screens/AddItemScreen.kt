@@ -10,7 +10,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material3.*
@@ -40,30 +39,34 @@ fun AddItemScreen(listaId: Long, onDone: () -> Unit) {
 
     LaunchedEffect(Unit) { vm.cargar() }
 
+    val toast = com.example.tfg.ui.components.rememberToast()
+    LaunchedEffect(state.error) { state.error?.let { toast.error(it) } }
+
     val config = LocalConfiguration.current
     val padTop = config.screenHeightDp.dp / 16
     val padLR = config.screenWidthDp.dp / 32
 
+    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
     Column(
         Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
             .padding(horizontal = padLR)
             .padding(top = padTop)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Default.ArrowBack, null, tint = MaterialTheme.colorScheme.onBackground,
-                modifier = Modifier.clickable { onDone() })
-            Spacer(Modifier.width(12.dp))
+        Row(
+            Modifier.fillMaxWidth().height(56.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Text("Añadir producto", color = MaterialTheme.colorScheme.onBackground,
-                fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                fontSize = 22.sp, fontWeight = FontWeight.Bold)
         }
         Spacer(Modifier.height(16.dp))
         Row(Modifier.fillMaxWidth()) {
             TabHeader("Predefinidos", tab == 0, Modifier.weight(1f)) { tab = 0 }
             TabHeader("Añadir uno nuevo", tab == 1, Modifier.weight(1f)) { tab = 1 }
         }
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(8.dp))
+        state.error?.let { Text(it, color = Color.Red, fontSize = 13.sp); Spacer(Modifier.height(8.dp)) }
 
         if (tab == 0) {
             PredefinidosTab(
@@ -75,6 +78,11 @@ fun AddItemScreen(listaId: Long, onDone: () -> Unit) {
         } else {
             NuevoItemTab(onCrear = { dto -> vm.anadirNuevo(listaId, dto, onDone) })
         }
+    }
+        com.example.tfg.ui.components.BackBoton(
+            onClick = onDone,
+            modifier = Modifier.align(Alignment.BottomStart).padding(start = padLR)
+        )
     }
 }
 
@@ -109,13 +117,13 @@ private fun PredefinidosTab(
             Header("Favoritos", openFav) { openFav = !openFav }
         }
         if (openFav) {
-            items(favoritos, key = { it.id ?: 0 }) { f ->
+            items(favoritos, key = { "fav-${it.id ?: 0}" }) { f ->
                 ItemRow(text = formatFav(f), onClick = { onFavoritoClick(f) })
             }
         }
         item { Header("Sistema", openSis) { openSis = !openSis } }
         if (openSis) {
-            items(sistema, key = { it.id ?: 0 }) { p ->
+            items(sistema, key = { "sis-${it.id ?: 0}" }) { p ->
                 ItemRow(text = p.nombre, onClick = { onSistemaClick(p) })
             }
         }
@@ -171,6 +179,7 @@ private fun NuevoItemTab(onCrear: (ProductoListaDTO) -> Unit) {
         Box(
             Modifier
                 .align(Alignment.BottomEnd)
+                .navigationBarsPadding()
                 .padding(16.dp)
                 .size(56.dp)
                 .background(GreenAccent, CircleShape)
