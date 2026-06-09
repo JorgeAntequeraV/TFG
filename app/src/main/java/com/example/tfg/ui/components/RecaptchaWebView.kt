@@ -78,7 +78,7 @@ fun RecaptchaWebView(
                 settings.domStorageEnabled = true
                 settings.cacheMode = android.webkit.WebSettings.LOAD_DEFAULT
                 webViewClient = WebViewClient()
-                // Logs JS para depurar problemas de reCAPTCHA
+                //Logs
                 webChromeClient = object : WebChromeClient() {
                     override fun onConsoleMessage(msg: ConsoleMessage): Boolean {
                         Log.d("Recaptcha-JS",

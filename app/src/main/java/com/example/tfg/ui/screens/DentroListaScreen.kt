@@ -27,7 +27,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.tfg.data.model.ListaDTO
 import com.example.tfg.data.model.ProductoListaDTO
-import com.example.tfg.ui.components.BackFab
+import com.example.tfg.ui.components.BackBoton
 import com.example.tfg.ui.components.GreenTextField
 import com.example.tfg.ui.components.PrimaryButton
 import com.example.tfg.ui.theme.GreenAccent
@@ -65,6 +65,10 @@ fun DentroListaScreen(
 
     LaunchedEffect(listaId) { vm.cargar(listaId) }
 
+    val toast = com.example.tfg.ui.components.rememberToast()
+    LaunchedEffect(state.mensaje) { state.mensaje?.let { toast.exito(it); vm.limpiarMensaje() } }
+    LaunchedEffect(state.error) { state.error?.let { toast.error(it); vm.limpiarMensaje() } }
+
     val config = LocalConfiguration.current
     val padTop = config.screenHeightDp.dp / 16
     val padLR = config.screenWidthDp.dp / 32
@@ -73,7 +77,7 @@ fun DentroListaScreen(
     val productos = lista?.productos ?: emptyList()
     val ordenados = if (lista?.ordenAscendente != false) productos.sortedBy { it.nombre.lowercase() }
     else productos.sortedByDescending { it.nombre.lowercase() }
-    // En modo compra separamos los pendientes de los comprados (en rojo abajo)
+    //En modo compra separamos los pendientes de los comprados
     val pendientes = if (modoCompra) ordenados.filter { it.id !in comprados } else ordenados
     val rojos = if (modoCompra) ordenados.filter { it.id in comprados } else emptyList()
 
@@ -86,7 +90,7 @@ fun DentroListaScreen(
     ) {
         Column(Modifier.fillMaxSize()) {
             Row(
-                Modifier.fillMaxWidth(),
+                Modifier.fillMaxWidth().height(56.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
@@ -138,7 +142,8 @@ fun DentroListaScreen(
 
             LazyColumn(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
+                contentPadding = PaddingValues(bottom = 200.dp)
             ) {
                 items(pendientes, key = { it.id ?: 0 }) { p ->
                     ItemCard(
@@ -161,22 +166,43 @@ fun DentroListaScreen(
                 }
                 if (lista?.mostrarPrecios == true) {
                     item {
-                        Row(
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(top = 16.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text("Total:", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold)
-                            Text(
-                                String.format("%.2f €", totalDeProductos(productos)),
-                                color = MaterialTheme.colorScheme.onBackground,
-                                fontWeight = FontWeight.Bold
-                            )
+
+                        if (modoCompra && rojos.isNotEmpty()) {
+                            Row(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 16.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    "Total pendiente:",
+                                    color = MaterialTheme.colorScheme.onBackground,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    String.format("%.2f €", totalDeProductos(pendientes)),
+                                    color = MaterialTheme.colorScheme.onBackground,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        } else {
+                            Row(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 16.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text("Total:", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold)
+                                Text(
+                                    String.format("%.2f €", totalDeProductos(productos)),
+                                    color = MaterialTheme.colorScheme.onBackground,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
                         }
                     }
                 }
-                // Sección de productos comprados (en rojo) — debajo de la lista o del Total
+
                 if (modoCompra && rojos.isNotEmpty()) {
                     item {
                         Box(
@@ -200,18 +226,41 @@ fun DentroListaScreen(
                             onPrecioClick = { }
                         )
                     }
+
+                    if (lista?.mostrarPrecios == true) {
+                        item {
+                            Row(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    "Total comprado:",
+                                    color = RedComprado,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    String.format("%.2f €", totalDeProductos(rojos)),
+                                    color = RedComprado,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
 
         // Botón "volver" inferior izquierdo (lado opuesto al "+")
-        BackFab(onClick = onBack, modifier = Modifier.align(Alignment.BottomStart))
+        BackBoton(onClick = onBack, modifier = Modifier.align(Alignment.BottomStart))
 
         // FAB inferior derecho — "+" en modo normal, "Comprar" en modo compra
         if (modoCompra) {
             Box(
                 Modifier
                     .align(Alignment.BottomEnd)
+                    .navigationBarsPadding()
                     .padding(bottom = 16.dp)
                     .background(GreenAccent, RoundedCornerShape(28.dp))
                     .clickable(enabled = comprados.isNotEmpty()) {
@@ -235,6 +284,7 @@ fun DentroListaScreen(
             Box(
                 Modifier
                     .align(Alignment.BottomEnd)
+                    .navigationBarsPadding()
                     .padding(bottom = 16.dp)
                     .size(56.dp)
                     .background(GreenAccent, CircleShape)
@@ -391,9 +441,55 @@ internal fun totalDeProductos(productos: List<ProductoListaDTO>): Double =
 @Composable
 fun CompartirSheet(onEnviar: (String) -> Unit) {
     var tag by remember { mutableStateOf("") }
-    Column(Modifier.fillMaxWidth().padding(16.dp)) {
+
+    // Carga la lista de amigos del usuario para poder invitar con un click.
+    val amigosVm: com.example.tfg.ui.viewmodel.AmigosViewModel = viewModel()
+    val amigosState by amigosVm.state.collectAsState()
+    LaunchedEffect(Unit) { amigosVm.cargar() }
+
+    Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(16.dp)) {
         Text("Compartir lista", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(12.dp))
+
+        if (amigosState.amigos.isNotEmpty()) {
+            Text("Tus amigos", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(8.dp))
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 220.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                items(amigosState.amigos, key = { it.id }) { amigo ->
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .background(GreenDark, RoundedCornerShape(10.dp))
+                            .clickable {
+                                amigo.tagAmigo?.let { t -> if (t.isNotBlank()) onEnviar(t) }
+                            }
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(amigo.nombreUsuario ?: "?", color = Color.White, fontWeight = FontWeight.SemiBold)
+                        Spacer(Modifier.weight(1f))
+                        Text(
+                            amigo.tagAmigo ?: "",
+                            color = Color.White.copy(alpha = 0.8f),
+                            fontSize = 13.sp
+                        )
+                    }
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+            Text(
+                "O introduce un tag manualmente:",
+                color = Color.White.copy(alpha = 0.8f),
+                fontSize = 13.sp
+            )
+            Spacer(Modifier.height(8.dp))
+        }
+
         GreenTextField(value = tag, onValueChange = { tag = it.uppercase() },
             placeholder = "Tag de amigo (8 caracteres)", background = GreenDark)
         Spacer(Modifier.height(16.dp))
@@ -413,7 +509,7 @@ fun OpcionesSheet(
     var asc by remember { mutableStateOf(lista.ordenAscendente ?: true) }
     var mostrar by remember { mutableStateOf(lista.mostrarPrecios ?: false) }
 
-    Column(Modifier.fillMaxWidth().padding(16.dp)) {
+    Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(16.dp)) {
         GreenTextField(value = nombre, onValueChange = { nombre = it },
             placeholder = "Cambiar nombre de la lista", background = GreenDark)
         Spacer(Modifier.height(12.dp))
@@ -456,7 +552,7 @@ private fun ToggleBtn(text: String, sel: Boolean, onClick: () -> Unit, modifier:
 
 @Composable
 fun MantenerSheet(onCopiar: () -> Unit, onEliminar: () -> Unit) {
-    Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         PrimaryButton("Copiar", onCopiar, modifier = Modifier.fillMaxWidth())
         PrimaryButton("Eliminar", onEliminar, modifier = Modifier.fillMaxWidth())
         Spacer(Modifier.height(8.dp))
@@ -469,7 +565,7 @@ fun CopiarASheet(excluirId: Long, onCopiarA: (Long) -> Unit) {
     val st by listasVm.state.collectAsState()
     LaunchedEffect(Unit) { listasVm.cargar() }
 
-    Column(Modifier.fillMaxWidth().padding(16.dp)) {
+    Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(16.dp)) {
         Text("Copiar a:", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(12.dp))
         st.listas.filter { it.id != excluirId }.forEach { l ->
@@ -498,7 +594,7 @@ fun PulsarItemSheet(producto: ProductoListaDTO, onGuardar: (ProductoListaDTO) ->
     fun setUnidad(u: String) { unidad = u }
     fun cantidadNum() = cantidad.toIntOrNull() ?: 0
 
-    Column(Modifier.fillMaxWidth().padding(16.dp)) {
+    Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(16.dp)) {
         // Fila 1: nombre (mitad izquierda) | precio (mitad derecha)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Box(Modifier.weight(1f)) {
@@ -606,7 +702,7 @@ fun PulsarItemSheet(producto: ProductoListaDTO, onGuardar: (ProductoListaDTO) ->
 @Composable
 fun ClickPrecioSheet(inicial: Double?, onGuardar: (Double) -> Unit) {
     var precio by remember { mutableStateOf(inicial?.toString() ?: "") }
-    Column(Modifier.fillMaxWidth().padding(16.dp)) {
+    Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(16.dp)) {
         OutlinedTextField(
             value = precio,
             onValueChange = { v ->

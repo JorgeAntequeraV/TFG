@@ -1,10 +1,11 @@
 package com.example.tfg.ui.screens
 
-import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -40,7 +41,14 @@ fun PerfilScreen(
 ) {
     val vm: PerfilViewModel = viewModel()
     val sessionData by vm.sessionState.collectAsState()
+    val cuenta by vm.cuenta.collectAsState()
+    val perfilState by vm.state.collectAsState()
+    val toast = com.example.tfg.ui.components.rememberToast()
     var showCambiarNombre by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) { vm.cargarCuenta() }
+    LaunchedEffect(perfilState.mensaje) { perfilState.mensaje?.let { toast.exito(it); vm.limpiar() } }
+    LaunchedEffect(perfilState.error) { perfilState.error?.let { toast.error(it); vm.limpiar() } }
 
     val config = LocalConfiguration.current
     val padTop = config.screenHeightDp.dp / 16
@@ -50,17 +58,22 @@ fun PerfilScreen(
 
     Scaffold(
         bottomBar = { BottomBar(BottomTab.PERFIL, onTabChange) },
-        containerColor = MaterialTheme.colorScheme.background
+        containerColor = MaterialTheme.colorScheme.background,
+        contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0)
     ) { inner ->
         Column(
             Modifier
                 .padding(inner)
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = padLR)
                 .padding(top = padTop)
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                Modifier.fillMaxWidth().height(56.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Text("Perfil", color = MaterialTheme.colorScheme.onBackground,
                     fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                 ProfileAvatar(initial = initial, size = 48)
@@ -71,6 +84,8 @@ fun PerfilScreen(
                 activado = sessionData.temaOscuro,
                 onToggle = { vm.toggleTemaOscuro(it) }
             )
+            Spacer(Modifier.height(12.dp))
+            CuentaCard(cuenta)
             Spacer(Modifier.height(12.dp))
             ProfileButton("Notificaciones") { onNotificaciones() }
             Spacer(Modifier.height(12.dp))
@@ -87,7 +102,7 @@ fun PerfilScreen(
                 ProfileButton("Panel de Administración") { onAdmin() }
             }
 
-            Spacer(Modifier.weight(1f))
+            Spacer(Modifier.height(24.dp))
             PrimaryButton(
                 text = "Cerrar sesión",
                 onClick = { vm.logout(onLogout) },
@@ -111,8 +126,9 @@ private fun TemaOscuroCard(activado: Boolean, onToggle: (Boolean) -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()
+            .height(60.dp)
             .background(GreenMedium, RoundedCornerShape(12.dp))
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text("Tema oscuro", color = Color.White, modifier = Modifier.weight(1f), fontSize = 16.sp)
@@ -130,13 +146,48 @@ private fun TemaOscuroCard(activado: Boolean, onToggle: (Boolean) -> Unit) {
 }
 
 @Composable
+private fun CuentaCard(cuenta: com.example.tfg.ui.viewmodel.CuentaInfo) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .background(GreenMedium, RoundedCornerShape(12.dp))
+            .padding(horizontal = 16.dp, vertical = 12.dp)
+    ) {
+        Text("Cuenta", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(8.dp))
+        CuentaRow("Nombre", cuenta.nombre)
+        CuentaRow("Usuario", cuenta.nombreUsuario)
+        CuentaRow("Correo", cuenta.email)
+    }
+}
+
+@Composable
+private fun CuentaRow(etiqueta: String, valor: String?) {
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(etiqueta, color = Color.White.copy(alpha = 0.75f), fontSize = 13.sp,
+            modifier = Modifier.width(80.dp))
+        Text(
+            valor?.takeIf { it.isNotBlank() } ?: "…",
+            color = Color.White,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.SemiBold
+        )
+    }
+}
+
+@Composable
 private fun ProfileButton(text: String, onClick: () -> Unit) {
     Box(
         Modifier
             .fillMaxWidth()
+            .height(60.dp)
             .background(GreenMedium, RoundedCornerShape(12.dp))
             .clickable { onClick() }
-            .padding(horizontal = 16.dp, vertical = 16.dp)
+            .padding(horizontal = 16.dp),
+        contentAlignment = Alignment.CenterStart
     ) {
         Text(text, color = Color.White, fontSize = 16.sp)
     }
@@ -145,7 +196,7 @@ private fun ProfileButton(text: String, onClick: () -> Unit) {
 @Composable
 fun CambiarNombreSheet(onGuardar: (String) -> Unit) {
     var nombre by remember { mutableStateOf("") }
-    Column(Modifier.fillMaxWidth().padding(16.dp)) {
+    Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(16.dp)) {
         Text("Cambiar nombre", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(16.dp))
         GreenTextField(
@@ -167,8 +218,12 @@ fun CambiarNombreSheet(onGuardar: (String) -> Unit) {
 fun CambiarCorreoScreen(onBack: () -> Unit) {
     val vm: PerfilViewModel = viewModel()
     val st by vm.state.collectAsState()
+    val toast = com.example.tfg.ui.components.rememberToast()
     var correo by remember { mutableStateOf("") }
     var localError by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(st.mensaje) { st.mensaje?.let { toast.exito(it); vm.limpiar() } }
+    LaunchedEffect(st.error) { st.error?.let { toast.error(it); vm.limpiar() } }
 
     val config = LocalConfiguration.current
     val padLR = config.screenWidthDp.dp / 32
@@ -213,7 +268,7 @@ fun CambiarCorreoScreen(onBack: () -> Unit) {
             (localError ?: st.error)?.let { Text(it, color = Color.Red) }
             st.mensaje?.let { Text(it, color = MaterialTheme.colorScheme.onBackground) }
         }
-        com.example.tfg.ui.components.BackFab(
+        com.example.tfg.ui.components.BackBoton(
             onClick = onBack,
             modifier = Modifier.align(Alignment.BottomStart).padding(start = padLR)
         )
@@ -224,10 +279,14 @@ fun CambiarCorreoScreen(onBack: () -> Unit) {
 fun CambiarContrasenaScreen(onBack: () -> Unit) {
     val vm: PerfilViewModel = viewModel()
     val st by vm.state.collectAsState()
+    val toast = com.example.tfg.ui.components.rememberToast()
     var actual by remember { mutableStateOf("") }
     var nueva by remember { mutableStateOf("") }
     var nuevaRep by remember { mutableStateOf("") }
     var localError by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(st.mensaje) { st.mensaje?.let { toast.exito(it); vm.limpiar() } }
+    LaunchedEffect(st.error) { st.error?.let { toast.error(it); vm.limpiar() } }
 
     val config = LocalConfiguration.current
     val padLR = config.screenWidthDp.dp / 32
@@ -266,7 +325,7 @@ fun CambiarContrasenaScreen(onBack: () -> Unit) {
             (localError ?: st.error)?.let { Text(it, color = Color.Red) }
             st.mensaje?.let { Text(it, color = MaterialTheme.colorScheme.onBackground) }
         }
-        com.example.tfg.ui.components.BackFab(
+        com.example.tfg.ui.components.BackBoton(
             onClick = onBack,
             modifier = Modifier.align(Alignment.BottomStart).padding(start = padLR)
         )

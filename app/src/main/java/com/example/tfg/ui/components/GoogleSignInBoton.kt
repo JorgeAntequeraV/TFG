@@ -20,7 +20,7 @@ import com.google.android.gms.common.api.ApiException
 
 
 @Composable
-fun GoogleSignInButton(
+fun GoogleSignInBoton(
     onIdTokenReceived: (String) -> Unit,
     onError: (String) -> Unit,
     modifier: Modifier = Modifier,

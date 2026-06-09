@@ -38,7 +38,10 @@ fun FavoritosScreen(
 ) {
     val vm: FavoritosViewModel = viewModel()
     val state by vm.state.collectAsState()
+    val toast = com.example.tfg.ui.components.rememberToast()
     LaunchedEffect(Unit) { vm.cargar() }
+    LaunchedEffect(state.mensaje) { state.mensaje?.let { toast.exito(it); vm.limpiarMensaje() } }
+    LaunchedEffect(state.error) { state.error?.let { toast.error(it); vm.limpiarMensaje() } }
 
     var editar by remember { mutableStateOf<FavoritoDTO?>(null) }
 
@@ -48,7 +51,8 @@ fun FavoritosScreen(
 
     Scaffold(
         bottomBar = { BottomBar(BottomTab.FAVORITOS, onTabChange) },
-        containerColor = MaterialTheme.colorScheme.background
+        containerColor = MaterialTheme.colorScheme.background,
+        contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0)
     ) { inner ->
         Column(
             Modifier
@@ -58,7 +62,7 @@ fun FavoritosScreen(
                 .padding(horizontal = padLR)
                 .padding(top = padTop)
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().height(56.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("Items favoritos", color = MaterialTheme.colorScheme.onBackground,
                     fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                 Box(
@@ -133,7 +137,7 @@ private fun EditarFavoritoSheet(
     var unidad by remember { mutableStateOf(inicial.unidadMedida ?: "") }
     var precio by remember { mutableStateOf(inicial.precio?.toString() ?: "") }
 
-    Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("Editar favorito", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
         CardField("Nombre", nombre, { nombre = it })
         CardField("Cantidad", cantidad, { v -> if (v.all { it.isDigit() }) cantidad = v },
@@ -161,6 +165,10 @@ private fun EditarFavoritoSheet(
 @Composable
 fun AddFavoritoScreen(onDone: () -> Unit) {
     val vm: FavoritosViewModel = viewModel()
+    val state by vm.state.collectAsState()
+    val toast = com.example.tfg.ui.components.rememberToast()
+    LaunchedEffect(state.mensaje) { state.mensaje?.let { toast.exito(it); vm.limpiarMensaje() } }
+    LaunchedEffect(state.error) { state.error?.let { toast.error(it); vm.limpiarMensaje() } }
     var nombre by remember { mutableStateOf("") }
     var cantidad by remember { mutableStateOf("") }
     var unidad by remember { mutableStateOf("") }
@@ -178,14 +186,13 @@ fun AddFavoritoScreen(onDone: () -> Unit) {
             .padding(top = padTop)
     ) {
         Column {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.ArrowBack, null,
-                    tint = MaterialTheme.colorScheme.onBackground,
-                    modifier = Modifier.clickable { onDone() })
-                Spacer(Modifier.width(12.dp))
-                Text("Crear un nuevo ítem favorito",
+            Row(
+                Modifier.fillMaxWidth().height(56.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Crear nuevo favorito",
                     color = MaterialTheme.colorScheme.onBackground,
-                    fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                    fontSize = 22.sp, fontWeight = FontWeight.Bold)
             }
             Spacer(Modifier.height(config.screenHeightDp.dp / 32))
             Column(verticalArrangement = Arrangement.spacedBy(config.screenHeightDp.dp / 32)) {
@@ -202,6 +209,7 @@ fun AddFavoritoScreen(onDone: () -> Unit) {
         Box(
             Modifier
                 .align(Alignment.BottomEnd)
+                .navigationBarsPadding()
                 .padding(16.dp)
                 .size(56.dp)
                 .background(GreenAccent, CircleShape)

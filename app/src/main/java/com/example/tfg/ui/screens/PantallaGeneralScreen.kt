@@ -41,13 +41,18 @@ fun PantallaGeneralScreen(
 
     LaunchedEffect(Unit) { vm.cargar() }
 
+    val toast = com.example.tfg.ui.components.rememberToast()
+    LaunchedEffect(state.mensaje) { state.mensaje?.let { toast.exito(it); vm.limpiarMensaje() } }
+    LaunchedEffect(state.error) { state.error?.let { toast.error(it); vm.limpiarMensaje() } }
+
     val config = LocalConfiguration.current
     val padTop = config.screenHeightDp.dp / 16
     val padLR = config.screenWidthDp.dp / 32
 
     Scaffold(
         bottomBar = { BottomBar(BottomTab.LISTAS, onTabChange) },
-        containerColor = MaterialTheme.colorScheme.background
+        containerColor = MaterialTheme.colorScheme.background,
+        contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0)
     ) { inner ->
         Column(
             modifier = Modifier
@@ -58,7 +63,7 @@ fun PantallaGeneralScreen(
                 .padding(top = padTop)
         ) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().height(56.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
@@ -130,6 +135,7 @@ fun AnadirListaSheet(onCrear: (String) -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .navigationBarsPadding()
             .padding(16.dp)
     ) {
         Text("Crear nueva lista", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)

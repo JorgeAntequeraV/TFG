@@ -36,6 +36,8 @@ class Repository(
         session.clear()
     }
 
+    suspend fun obtenerMiUsuario() = safe { api.miPerfil() }
+
     // ===== Auth público — recuperación de contraseña =====
     suspend fun forgotPassword(nombreUsuario: String) = safe { api.forgotPassword(ForgotPasswordRequest(nombreUsuario)) }
     suspend fun resetPassword(token: String, nuevaContrasena: String) = safe { api.resetPassword(ResetPasswordRequest(token, nuevaContrasena)) }
@@ -95,11 +97,7 @@ class Repository(
     suspend fun obtenerSupermercadosDefecto() = safe { api.obtenerSupermercadosDefecto() }
     suspend fun obtenerProductosDefecto() = safe { api.obtenerProductosDefecto() }
 
-    /**
-     * Devuelve los productos por defecto cacheados localmente.
-     * La primera vez los descarga de la API y los guarda en almacenamiento local;
-     * a partir de ahí siempre vienen del cache, igual que los favoritos del usuario.
-     */
+
     suspend fun obtenerProductosDefectoCacheados(): Result<List<ProductoCatalogoDTO>> = runCatching {
         presets.productosCacheados()?.let { return@runCatching it }
         val frescos = api.obtenerProductosDefecto()
@@ -114,7 +112,6 @@ class Repository(
         frescos
     }.recoverCatching { throw mapError(it) }
 
-    /** Borra el cache local (útil tras logout o si se quiere forzar refresco). */
     suspend fun limpiarPresetsCache() = presets.limpiar()
 
     private suspend fun <T> safe(block: suspend () -> T): Result<T> = runCatching { block() }
@@ -126,13 +123,21 @@ class Repository(
                 val body = e.response()?.errorBody()?.string()
                 if (!body.isNullOrEmpty()) {
                     val json = org.json.JSONObject(body)
-                    json.optString("message").ifEmpty { "Error ${e.code()}" }
+                    json.optString("message")
+                        .ifEmpty { json.optString("error") }
+                        .ifEmpty { "Error ${e.code()}" }
                 } else "Error ${e.code()}"
             } catch (_: Exception) {
                 "Error ${e.code()}"
             }
             return RuntimeException(msg)
         }
-        return RuntimeException(e.message ?: "Error de red")
+        if (e is java.net.UnknownHostException ||
+            e is java.net.ConnectException ||
+            e is java.net.SocketTimeoutException ||
+            e is java.io.IOException) {
+            return RuntimeException("No se pudo conectar con el servidor. Comprueba tu conexión o que la API esté arrancada.")
+        }
+        return RuntimeException(e.message ?: "Error desconocido")
     }
 }

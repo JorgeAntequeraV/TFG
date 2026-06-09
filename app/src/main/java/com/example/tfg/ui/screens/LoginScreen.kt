@@ -3,7 +3,6 @@ package com.example.tfg.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -16,9 +15,10 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.tfg.ui.components.GoogleSignInButton
+import com.example.tfg.ui.components.GoogleSignInBoton
 import com.example.tfg.ui.components.GreenTextField
 import com.example.tfg.ui.components.PrimaryButton
+import com.example.tfg.ui.components.rememberToast
 import com.example.tfg.ui.viewmodel.AuthViewModel
 
 @Composable
@@ -29,14 +29,21 @@ fun LoginScreen(
 ) {
     val vm: AuthViewModel = viewModel()
     val state by vm.state.collectAsState()
+    val toast = rememberToast()
 
     var usuario by remember { mutableStateOf("") }
     var contrasena by remember { mutableStateOf("") }
 
     LaunchedEffect(state.success) {
         if (state.success) {
+            toast.exito("Sesión iniciada")
             onLoginSuccess()
             vm.reset()
+        }
+    }
+    LaunchedEffect(state.error) {
+        state.error?.let { msg ->
+            toast.error(msg)
         }
     }
 
@@ -88,8 +95,7 @@ fun LoginScreen(
         }
 
         Spacer(Modifier.height(28.dp))
-        // Continuar con Google (3/4 del largo) — Google Sign-In real
-        GoogleSignInButton(
+        GoogleSignInBoton(
             onIdTokenReceived = { idToken -> vm.loginConGoogle(idToken) },
             onError = { msg -> vm.mostrarError(msg) },
             modifier = Modifier.fillMaxWidth(0.75f),
@@ -97,7 +103,6 @@ fun LoginScreen(
         )
         Spacer(Modifier.height(28.dp))
 
-        // Iniciar sesión (2/4 del largo)
         PrimaryButton(
             text = "Iniciar Sesión",
             onClick = { vm.login(usuario.trim(), contrasena) },

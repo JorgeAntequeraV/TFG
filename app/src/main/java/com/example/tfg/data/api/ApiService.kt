@@ -25,6 +25,9 @@ interface ApiService {
     @POST("auth/google")
     suspend fun loginGoogle(@Body body: GoogleLoginRequest): TokenResponse
 
+    @GET("usuarios/me")
+    suspend fun miPerfil(): UsuarioDTO
+
     @PUT("usuarios/cambiar-contrasena")
     suspend fun cambiarContrasena(@Body body: CambiarContrasenaRequest): MessageResponse
 

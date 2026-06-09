@@ -18,11 +18,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.tfg.ui.components.BackFab
+import com.example.tfg.ui.components.BackBoton
 import com.example.tfg.ui.components.GreenTextField
 import com.example.tfg.ui.components.PrimaryButton
 import com.example.tfg.ui.components.RecaptchaWebView
 import com.example.tfg.ui.components.rememberRecaptchaController
+import com.example.tfg.ui.components.rememberToast
 import com.example.tfg.ui.theme.GreenAccent
 import com.example.tfg.ui.viewmodel.AuthViewModel
 
@@ -46,12 +47,15 @@ fun RegistroScreen(
 
     val recaptchaController = rememberRecaptchaController()
 
+    val toast = rememberToast()
     LaunchedEffect(state.success) {
         if (state.success) {
+            toast.exito("Cuenta creada con éxito")
             onRegistroSuccess()
             vm.reset()
         }
     }
+    LaunchedEffect(state.error) { state.error?.let { toast.error(it) } }
 
     val config = LocalConfiguration.current
     val padTopBottom = config.screenHeightDp.dp / 16
@@ -74,7 +78,7 @@ fun RegistroScreen(
         vm.registro(nombre.trim(), email.trim(), usuario.trim(), contrasena, recaptchaToken)
     }
 
-    // WebView invisible. NO se ejecuta solo: espera al click del usuario.
+//Necesita un click del usuariuo para activarse
     RecaptchaWebView(
         controller = recaptchaController,
         onTokenReceived = { token ->
@@ -118,7 +122,7 @@ fun RegistroScreen(
         GreenTextField(value = contrasena, onValueChange = { contrasena = it }, placeholder = "Contraseña", isPassword = true)
 
         Spacer(Modifier.height(24.dp))
-        // "No soy un robot" — al pulsar lanza el captcha v3 invisible.
+        //Pulsar oara activar el captcha, si no se me caducaban
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -181,6 +185,6 @@ fun RegistroScreen(
             Text(it, color = Color.Red, textAlign = TextAlign.Center)
         }
     }
-        BackFab(onClick = onBack, modifier = Modifier.align(Alignment.BottomStart).padding(start = padLeftRight))
+        BackBoton(onClick = onBack, modifier = Modifier.align(Alignment.BottomStart).padding(start = padLeftRight))
     }
 }

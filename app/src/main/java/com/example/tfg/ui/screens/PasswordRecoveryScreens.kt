@@ -13,7 +13,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.tfg.ui.components.BackFab
+import com.example.tfg.ui.components.BackBoton
 import com.example.tfg.ui.components.GreenTextField
 import com.example.tfg.ui.components.PrimaryButton
 import com.example.tfg.ui.viewmodel.AuthViewModel
@@ -69,7 +69,7 @@ fun ForgotPasswordScreen(onBack: () -> Unit) {
             }
             state.error?.let { Text(it, color = Color.Red, textAlign = TextAlign.Center) }
         }
-        BackFab(
+        BackBoton(
             onClick = onBack,
             modifier = Modifier.align(Alignment.BottomStart).padding(start = padLR)
         )
@@ -145,7 +145,7 @@ fun ResetPasswordScreen(token: String, onDone: () -> Unit) {
                 (localError ?: state.error)?.let { Text(it, color = Color.Red) }
             }
         }
-        BackFab(
+        BackBoton(
             onClick = onDone,
             modifier = Modifier.align(Alignment.BottomStart).padding(start = padLR)
         )

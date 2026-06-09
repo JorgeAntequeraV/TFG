@@ -9,6 +9,7 @@ import kotlinx.coroutines.launch
 data class AmigosState(
     val loading: Boolean = false,
     val amigos: List<AmigoDTO> = emptyList(),
+    val miTag: String? = null,
     val mensaje: String? = null,
     val error: String? = null
 )
@@ -21,15 +22,22 @@ class AmigosViewModel : BaseVM() {
         viewModelScope.launch {
             _state.value = _state.value.copy(loading = true, error = null)
             repo.obtenerAmigos()
-                .onSuccess { _state.value = AmigosState(amigos = it) }
-                .onFailure { _state.value = AmigosState(error = it.message) }
+                .onSuccess { _state.value = _state.value.copy(loading = false, amigos = it, error = null) }
+                .onFailure { _state.value = _state.value.copy(loading = false, error = it.message) }
+            // Cargar también el tag propio (no bloquea la lista)
+            repo.obtenerMiUsuario()
+                .onSuccess { _state.value = _state.value.copy(miTag = it.tagAmigo) }
         }
     }
 
     fun eliminar(id: Long) {
         viewModelScope.launch {
-            repo.eliminarAmigo(id).onSuccess { cargar() }
-                .onFailure { _state.value = _state.value.copy(error = it.message) }
+            repo.eliminarAmigo(id)
+                .onSuccess {
+                    _state.value = _state.value.copy(mensaje = "Amigo eliminado", error = null)
+                    cargar()
+                }
+                .onFailure { _state.value = _state.value.copy(error = it.message ?: "No se pudo eliminar") }
         }
     }
 
@@ -40,7 +48,7 @@ class AmigosViewModel : BaseVM() {
                     _state.value = _state.value.copy(mensaje = "Solicitud enviada", error = null)
                     onDone()
                 }
-                .onFailure { _state.value = _state.value.copy(error = it.message) }
+                .onFailure { _state.value = _state.value.copy(error = it.message ?: "No se pudo enviar la solicitud") }
         }
     }
 

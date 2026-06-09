@@ -6,8 +6,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -31,7 +29,10 @@ import com.example.tfg.ui.viewmodel.AdminViewModel
 fun AdminScreen(onBack: () -> Unit) {
     val vm: AdminViewModel = viewModel()
     val state by vm.state.collectAsState()
+    val toast = com.example.tfg.ui.components.rememberToast()
     LaunchedEffect(Unit) { vm.cargar() }
+    LaunchedEffect(state.mensaje) { state.mensaje?.let { toast.exito(it); vm.limpiarMensaje() } }
+    LaunchedEffect(state.error) { state.error?.let { toast.error(it); vm.limpiarMensaje() } }
 
     var seleccion by remember { mutableStateOf<AdminUsuarioDTO?>(null) }
     var confirmEliminar by remember { mutableStateOf<AdminUsuarioDTO?>(null) }
@@ -41,23 +42,24 @@ fun AdminScreen(onBack: () -> Unit) {
     val padLR = config.screenWidthDp.dp / 32
     val gap = config.screenHeightDp.dp / 32
 
-    Scaffold(containerColor = MaterialTheme.colorScheme.background) { inner ->
+    Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
+        contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0)
+    ) { inner ->
+        Box(Modifier.padding(inner).fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Column(
             Modifier
-                .padding(inner)
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
                 .padding(horizontal = padLR)
                 .padding(top = padTop)
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.ArrowBack, null,
-                    tint = MaterialTheme.colorScheme.onBackground,
-                    modifier = Modifier.clickable { onBack() })
-                Spacer(Modifier.width(12.dp))
+            Row(
+                Modifier.fillMaxWidth().height(56.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Text("Panel de Administración",
                     color = MaterialTheme.colorScheme.onBackground,
-                    fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                    fontSize = 22.sp, fontWeight = FontWeight.Bold)
             }
             Spacer(Modifier.height(gap))
             GreenTextField(
@@ -75,6 +77,11 @@ fun AdminScreen(onBack: () -> Unit) {
                     UsuarioCard(u, onClick = { seleccion = u })
                 }
             }
+        }
+        com.example.tfg.ui.components.BackBoton(
+            onClick = onBack,
+            modifier = Modifier.align(Alignment.BottomStart).padding(start = padLR)
+        )
         }
     }
 
@@ -142,7 +149,7 @@ private fun OpcionesAdminSheet(
     onEliminar: () -> Unit,
     onCerrar: () -> Unit
 ) {
-    Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("Gestionando a: ${usuario.nombreUsuario}",
             color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(4.dp))

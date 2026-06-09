@@ -12,10 +12,7 @@ import kotlinx.coroutines.flow.first
 
 private val Context.presetsDataStore by preferencesDataStore("buynotes_presets")
 
-/**
- * Cache local de los presets devueltos por la API una sola vez.
- * Una vez cacheados se sirven del almacenamiento local hasta que se invalide.
- */
+
 class PresetsCache(private val context: Context) {
 
     private val moshi: Moshi = Moshi.Builder()

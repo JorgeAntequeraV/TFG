@@ -1,6 +1,8 @@
 package com.example.tfg.ui.nav
 
+import android.content.Intent
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.navigation.NavType
@@ -12,13 +14,25 @@ import androidx.navigation.navDeepLink
 import com.example.tfg.BuyNotesApp
 import com.example.tfg.ui.components.BottomTab
 import com.example.tfg.ui.screens.*
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.filterNotNull
 
 @Composable
-fun AppNavigation() {
+fun AppNavigation(intentsFlow: StateFlow<Intent?> = MutableStateFlow(null)) {
     val navController = rememberNavController()
     val token by BuyNotesApp.instance.sessionManager.tokenFlow.collectAsState(initial = null)
 
     val startDestination = if (token.isNullOrBlank()) Routes.LOGIN else Routes.LISTAS
+
+    //Procesa deep links incluso cuando la app ya está abierta gracias al onNewIntent.
+    LaunchedEffect(navController) {
+        intentsFlow.filterNotNull().collect { intent ->
+            if (intent.data != null) {
+                navController.handleDeepLink(intent)
+            }
+        }
+    }
 
     fun goTab(tab: BottomTab) {
         when (tab) {
